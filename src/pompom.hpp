@@ -13,32 +13,32 @@
 
 namespace pompom {
 
-	// id for error messages
-	static const char SELF[] = "pompom";
+// id for error messages
+static const char SELF[] = "pompom";
 
-	// Number of symbols in alphabet without escape and EOS
-	static const unsigned short Alpha = 255;
+// Number of symbols in alphabet without escape and EOS
+static const unsigned short Alpha = 255;
 
-	// Code for escape symbol
-	static const unsigned short Escape = 256;
+// Code for escape symbol
+static const unsigned short Escape = 256;
 
-	// Code for end of stream symbol
-	static const unsigned short EOS = 257;
+// Code for end of stream symbol
+static const unsigned short EOS = 257;
 
-	// Compressed file magic header
-	static const char Magia[] = "pim";
+// Compressed file magic header
+static const char Magia[] = "pim";
 
-	// Fixed length prediction order
-	// TODO allow for variable order
-	static const unsigned short Order = 3;
+// Fixed length prediction order
+// TODO allow for variable order
+static const unsigned short Order = 3;
 
-	// Model memory limits 
-	static const unsigned short LimitMin = 8;
-	static const unsigned short LimitDefault = 32;
-	static const unsigned short LimitMax = 2048;
+// Model memory limits 
+static const unsigned short LimitMin = 8;
+static const unsigned short LimitDefault = 32;
+static const unsigned short LimitMax = 2048;
 
-	long decompress(std::istream&, std::ostream&, std::ostream&);
+long decompress(std::istream&, std::ostream&, std::ostream&);
 
-	long compress(std::istream&, std::ostream&, 
-			std::ostream&, const std::string&);
-}
+long compress(std::istream&, std::ostream&, std::ostream&, const std::string&);
+
+} // namespace

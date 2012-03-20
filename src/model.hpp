@@ -15,37 +15,36 @@
 
 namespace pompom {
 
-	class model {
-	public:
-		// Returns new instance, checking model_args
-		static model * instance(const int);
+class model {
+public:
+	// Returns new instance, checking model_args
+	static model * instance(const int);
 
-		// Give running totals of the symbols in context
-		void dist(const int, int[]);
+	// Give running totals of the symbols in context
+	void dist(const int, int[]);
 
-		// Clean polluted entries
-		// @see http://research.microsoft.com/en-us/um/people/darkok/papers/DCC-ppm-cleaning.pdf 
-		void clean();
+	// Clean polluted entries
+	// @see http://research.microsoft.com/en-us/um/people/darkok/papers/DCC-ppm-cleaning.pdf 
+	void clean();
 
-		// Rescale when largest frequency has met limit
-		void rescale();
+	// Rescale when largest frequency has met limit
+	void rescale();
 
-		// Increase symbol counts
-		void update(const int);
+	// Increase symbol counts
+	void update(const int);
 
-		~model();
-	private:
-		model(const int);
-		model();
-		model(const model& old);
-		const model& operator=(const model& old);
+	~model();
+private:
+	model(const int);
+	model();
+	model(const model& old);
+	const model& operator=(const model& old);
 
-		// Data context
-		std::deque<int> context;
+	// Data context
+	std::deque<int> context;
 
-		// Visited nodes
-		std::vector<int> visit;
-	};
+	// Visited nodes
+	std::vector<int> visit;
+};
 
-
-}
+} // namespace
