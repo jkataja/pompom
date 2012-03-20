@@ -25,13 +25,13 @@ model * model::instance(const int limit) {
 }
 
 model::model(const int limit) {
-	// TODO initialize datree
-
 	visit.reserve(Order);
+
+	// initialize trie
 }
 
 model::~model() {
-	// TODO delete datree
+	// TODO delete trie
 }
 
 void model::dist(const int ord, int dist[]) {
@@ -59,20 +59,33 @@ void model::dist(const int ord, int dist[]) {
 		memset(dist, 0, sizeof(int) * (R(EOS) + 1));
 
 	// Just escapes before we have any context
-	if (context.size() < ord) {
+	if ((int)context.size() < ord) {
 		dist[ R(Escape) ] = dist[ R(EOS) ] = 1;
 		return;
 	}
 
-	// TODO seek existing context
+	// seek existing context (maximum order of 3)
+	uint32 t = 0;
+	for (int i = ord ; i > 0 ; --i) {
+		int c = context[i];
+		t = (t << 8) | c;
+	}
+
+	// TODO trie: have no context - add 0 counts
+
+	// seek successor states from node (following letters)
 	for (int c = 0 ; c <= Alpha ; ++c) {
-		// TODO c is in context
-		// only if symbol had 0 frequency in higher order
-		// if (dist[ L(c) ] == dist[ R(c) ])
-		// run += node.count(c)
-		// Escape frequency is count of symbols in context
-		if (dist[ R(c) ] != run)
-			++syms; 
+		// Only add if symbol had 0 frequency in higher order
+		// XXX 
+		if (dist[ R(c) ] == last) {
+			// frequency of successor
+			int f = nodecnt[(t << 8) | c];
+			if (f > 0) {
+				run += f;
+				// Count of symbols in context
+				++syms;
+			}
+		}
 
 		last = dist[ R(c) ];
 		dist[ R(c) ] = run;
@@ -80,26 +93,34 @@ void model::dist(const int ord, int dist[]) {
 	// Symbols in context, zero frequency for EOS
 	dist[ R(EOS) ] = dist[ R(Escape) ] = run + (syms > 0 ? syms : 1); 
 
-	//visit.insert(node);
+	visit.push_back(t);
 }
 
 void model::update(const int c) { 
 	if (c < 0 || c > Alpha) {
 		throw range_error("update character out of range");
 	}
-	// Max f met
-	BOOST_FOREACH ( int node, visit ) {
-		// TODO check if need to rescale
+	// Check if maximum frequency would be met, rescale if necessary
+	bool outscale = false;
+	BOOST_FOREACH ( uint32 node, visit ) {
+		outscale = (outscale || nodecnt[(node << 8) | c] >= (1 << 15));
 	}
+	if (outscale) {
+		rescale();
+	}
+
+	// Update frequency of c from visited nodes
 	// Don't update lower order contexts ("update exclusion")
-	BOOST_FOREACH ( int node, visit ) {
-		// TODO Add to symbol count in contexts used in compression
+	BOOST_FOREACH ( uint32 node, visit ) {
+		++nodecnt[(node << 8) | c];
 	}
 	visit.clear();
-	// Text context
+
+	// Update text context
 	if (context.size() == Order)
 		context.pop_back();
-	context.push_front(c);	
+	context.push_front(c);
+
 }
 
 void model::clean() {
@@ -107,7 +128,12 @@ void model::clean() {
 }
 
 void model::rescale() {
-	// TODO rescale all entries
+	// Rescale all entries
+	for (auto it = nodecnt.begin() ; it != nodecnt.end(); ++it) {
+		it->second >>= 1;
+		if (it->second < 1) 
+			it->second = 1;
+	}
 	// TODO call clean sometimes
 }
 

@@ -12,6 +12,7 @@
 #include <iostream>
 #include <vector>
 #include <deque>
+#include <tr1/unordered_map>
 
 namespace pompom {
 
@@ -45,6 +46,8 @@ private:
 
 	// Visited nodes
 	std::vector<int> visit;
+
+	std::tr1::unordered_map<uint32,uint32> nodecnt;
 };
 
 } // namespace
