@@ -4,8 +4,8 @@
 #include <boost/format.hpp>
 #include <boost/foreach.hpp>
 
-#include "pompom.hpp"
 #include "model.hpp"
+#include "pompom.hpp"
 
 using std::range_error;
 using std::string;
@@ -15,7 +15,7 @@ using boost::format;
 
 namespace pompom {
 
-model * model::instance(const int limit) {
+model * model::instance(const uint16 limit) {
 	if (limit < 8 || limit > 2048) {
 		string err = str( format("accepted limit is %1%-%2% MiB") 
 				% LimitMin % LimitMax );
@@ -24,7 +24,7 @@ model * model::instance(const int limit) {
 	return new model(limit);
 }
 
-model::model(const int limit) {
+model::model(const uint16 limit) {
 	visit.reserve(Order);
 
 	// initialize trie
@@ -34,13 +34,13 @@ model::~model() {
 	// TODO delete trie
 }
 
-void model::dist(const int ord, int dist[]) {
+void model::dist(const int16 ord, uint32 dist[]) {
 	// Count of symbols seen for escape frequency
-	int syms = 0; 
+	uint32 syms = 0; 
 	// Cumulative sum
-	int run = 0; 
+	uint32 run = 0; 
 	// Store previous value since R(c) == L(c+1)
-	int last = 0; 
+	uint32 last = 0; 
 
 	// -1th order
 	// Give 1 frequency to symbols which have no frequency in 0th order
@@ -96,10 +96,12 @@ void model::dist(const int ord, int dist[]) {
 	visit.push_back(t);
 }
 
-void model::update(const int c) { 
-	if (c < 0 || c > Alpha) {
+void model::update(const uint16 c) { 
+#ifndef HAPPY_GO_LUCKY
+	if (c > Alpha) {
 		throw range_error("update character out of range");
 	}
+#endif
 	// Check if maximum frequency would be met, rescale if necessary
 	bool outscale = false;
 	BOOST_FOREACH ( uint32 node, visit ) {

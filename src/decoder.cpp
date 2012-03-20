@@ -7,7 +7,7 @@ using namespace std;
 
 namespace pompom {
 
-const int decoder::decode(const int[]) {
+const int decoder::decode(const uint32[]) {
 	int c = 0;
 
 	if (eof())

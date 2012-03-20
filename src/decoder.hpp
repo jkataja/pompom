@@ -8,12 +8,14 @@
 
 #include <iostream>
 
+#include "pompomdefs.hpp"
+
 namespace pompom {
 
 class decoder {
 public:
 	// Encoder symbol using distribution
-	const int decode(const int[]);
+	const int decode(const uint32[]);
 
 	// End of data reached
 	const bool eof();

@@ -9,11 +9,13 @@ using namespace std;
 
 namespace pompom {
 
-void encoder::encode(const int c, const int dist[]) {
+void encoder::encode(const uint16 c, const uint32 dist[]) {
 
-	if (c < 0 || c > EOS) {
+#ifndef HAPPY_GO_LUCKY
+	if (c > EOS) {
 		throw range_error("symbol not in code range");
 	}
+#endif
 
 	out << (char)(c >> 8) << (char)(c & 0xFF);
 

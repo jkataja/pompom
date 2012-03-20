@@ -14,15 +14,17 @@
 #include <deque>
 #include <tr1/unordered_map>
 
+#include "pompomdefs.hpp"
+
 namespace pompom {
 
 class model {
 public:
 	// Returns new instance, checking model_args
-	static model * instance(const int);
+	static model * instance(const uint16);
 
 	// Give running totals of the symbols in context
-	void dist(const int, int[]);
+	void dist(const int16, uint32[]);
 
 	// Clean polluted entries
 	// @see http://research.microsoft.com/en-us/um/people/darkok/papers/DCC-ppm-cleaning.pdf 
@@ -32,11 +34,11 @@ public:
 	void rescale();
 
 	// Increase symbol counts
-	void update(const int);
+	void update(const uint16);
 
 	~model();
 private:
-	model(const int);
+	model(const uint16);
 	model();
 	model(const model& old);
 	const model& operator=(const model& old);

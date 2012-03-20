@@ -8,12 +8,14 @@
 
 #include <iostream>
 
+#include "pompomdefs.hpp"
+
 namespace pompom {
 
 class encoder {
 public:
 	// Encoder symbol using distribution
-	void encode(const int, const int[]);
+	void encode(const uint16, const uint32[]);
 
 	// Length of output bytes
 	const long len();
