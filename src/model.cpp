@@ -103,11 +103,10 @@ void model::update(const int c) {
 	// Check if maximum frequency would be met, rescale if necessary
 	bool outscale = false;
 	BOOST_FOREACH ( uint32 node, visit ) {
-		outscale = (outscale || nodecnt[(node << 8) | c] >= (1 << 15));
+		outscale = (outscale || nodecnt[(node << 8) | c] >= TopValue - 1);
 	}
-	if (outscale) {
+	if (outscale)
 		rescale();
-	}
 
 	// Update frequency of c from visited nodes
 	// Don't update lower order contexts ("update exclusion")

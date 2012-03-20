@@ -47,6 +47,12 @@ static const unsigned short LimitMin = 8;
 static const unsigned short LimitDefault = 32;
 static const unsigned short LimitMax = 2048;
 
+// Number of bits in a code value 
+static const int CodeValueBits = 16;
+
+// Largest code value
+static const long TopValue = (((long) 1 << CodeValueBits) - 1);
+
 long decompress(std::istream&, std::ostream&, std::ostream&);
 
 long compress(std::istream&, std::ostream&, std::ostream&, const std::string&);

@@ -43,7 +43,6 @@ long decompress(istream& in, ostream& out, ostream& err) {
 	decoder dec(in);
 	auto_ptr<model> m( model::instance(limit) );
 	int dist[ R(EOS) + 1];
-	//memset(dist, 0, sizeof(dist));
 
 	// Read data: terminated by EOS symbol
 	crc_32_type crc;
@@ -58,7 +57,7 @@ long decompress(istream& in, ostream& out, ostream& err) {
 				break;
 		} 
 		if (c == Escape) {
-			throw range_error("character range leaked escape from");
+			throw range_error("seek character range leaked escape");
 		}
 		if (c == EOS) {
 			break;
@@ -72,7 +71,7 @@ long decompress(istream& in, ostream& out, ostream& err) {
 		crc.process_byte(c);
 		++len;
 	}
-	if (in.eof()) {
+	if (dec.eof()) {
 		err << SELF << ": unexpected end of compressed data" << endl;
 		return -1;
 	}
@@ -109,7 +108,6 @@ long compress(istream& in, ostream& out,
 	encoder enc(out);
 	auto_ptr<model> m( model::instance(limit) );
 	int dist[ R(EOS) + 1];
-	//memset(dist, 0, sizeof(dist));
 
 	// Write data: terminated by EOS symbol
 	crc_32_type crc;

@@ -46,7 +46,8 @@ int main(int argc, char** argv) {
 			("stdout,c", "compress to stdout (default)")
 			("decompress,d", "decompress to stdout")
 			("limit,l", po::value<string>(), 
-				str( format("model memory limit in MiB (range %1%-%2%, default %3%)") % LimitMin % LimitMax % LimitDefault).c_str()
+				str( format("model memory limit in MiB (range %1%-%2%, default %3%)") 
+					% LimitMin % LimitMax % LimitDefault).c_str()
 			)
 			;
 
@@ -72,13 +73,11 @@ int main(int argc, char** argv) {
 
 	}
 	catch (exception& e) {
-		cerr << SELF << ": " << e.what() 
-			<< endl << flush;
+		cerr << SELF << ": " << e.what() << endl << flush;
 		return 1;
 	}
 	catch (...) {
-		cerr << SELF << ": caught unknown exception"
-			<< endl << flush;
+		cerr << SELF << ": caught unknown exception" << endl << flush;
 		return 1;
 	}
 
