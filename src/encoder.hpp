@@ -31,6 +31,10 @@ private:
 
 	std::ostream& out;
 	double hsum;
+	
+	const static uint32 WriteBufSize = 32768;
+	char buf[WriteBufSize];
+	uint32 p;
 };
 
 } // namespace
