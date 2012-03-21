@@ -23,14 +23,14 @@ using boost::str;
 using boost::format;
 using namespace pompom;
 
-#define BUFSIZE 16384
+#define BUFSIZE 32768
 
 int main(int argc, char** argv) {
 
 	long len = -1;
 	string model_args( str( format("%1%") % LimitDefault ) );
 
-	// Improves iostream performance
+	// Should improve iostream performance
 	// http://stackoverflow.com/questions/5166263/how-to-get-iostream-to-perform-better
 	setlocale(LC_ALL,"C");
 	char inbuf[BUFSIZE];
