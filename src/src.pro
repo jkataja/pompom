@@ -2,6 +2,7 @@ TEMPLATE = app
 CONFIG = console warn_on release
 SOURCES = main.cpp pompom.cpp model.cpp encoder.cpp decoder.cpp
 TARGET = pompom
+DESTDIR = ../bin
 
 QMAKE_CXXFLAGS += -std=c++0x
 
