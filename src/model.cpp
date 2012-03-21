@@ -34,68 +34,6 @@ model::~model() {
 	// TODO delete trie
 }
 
-void model::dist(const int16 ord, uint32 dist[]) {
-	// Count of symbols seen for escape frequency
-	uint32 syms = 0; 
-	// Cumulative sum
-	uint32 run = 0; 
-	// Store previous value since R(c) == L(c+1)
-	uint32 last = 0; 
-
-	// -1th order
-	// Give 1 frequency to symbols which have no frequency in 0th order
-	if (ord == -1) { 
-		for (int c = 0 ; c <= EOS ; ++c) {
-			if (dist[ R(c) ] == last)
-				++run; 
-			last = dist[ R(c) ];
-			dist[ R(c) ] = run;
-		}
-		return;
-	}
-
-	// Zero cumulative sums, no f for any symbol
-	if (ord == Order)
-		memset(dist, 0, sizeof(int) * (R(EOS) + 1));
-
-	// Just escapes before we have any context
-	if ((int)context.size() < ord) {
-		dist[ R(Escape) ] = dist[ R(EOS) ] = 1;
-		return;
-	}
-
-	// seek existing context (maximum order of 3)
-	uint32 t = 0;
-	for (int i = ord ; i > 0 ; --i) {
-		int c = context[i];
-		t = (t << 8) | c;
-	}
-
-	// TODO trie: have no context - add 0 counts
-
-	// seek successor states from node (following letters)
-	for (int c = 0 ; c <= Alpha ; ++c) {
-		// Only add if symbol had 0 frequency in higher order
-		// XXX 
-		if (dist[ R(c) ] == last) {
-			// frequency of successor
-			int f = nodecnt[(t << 8) | c];
-			if (f > 0) {
-				run += f;
-				// Count of symbols in context
-				++syms;
-			}
-		}
-
-		last = dist[ R(c) ];
-		dist[ R(c) ] = run;
-	}
-	// Symbols in context, zero frequency for EOS
-	dist[ R(EOS) ] = dist[ R(Escape) ] = run + (syms > 0 ? syms : 1); 
-
-	visit.push_back(t);
-}
-
 void model::update(const uint16 c) { 
 #ifndef HAPPY_GO_LUCKY
 	if (c > Alpha) {
