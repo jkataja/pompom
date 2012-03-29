@@ -13,12 +13,12 @@ const int decoder::decode(const uint32[]) {
 	if (eof())
 		return EOS;
 
-	// TODO read in
 	char b = 0;
 	for (int i = 0 ; (i<2 && (in.get(b) >= 0)) ; ++i) {
 		c = ((c << 8) | (b & 0xFF));
 	}
 
+#ifdef DEBUG
 	if (c >= 0x20 && c <= 0x7e) // ' ' .. '~'
 		cerr << "decode -> " << ((char)c) << endl << flush;
 	else if (c == Escape)
@@ -27,6 +27,7 @@ const int decoder::decode(const uint32[]) {
 		cerr << "decode -> EOS" << endl << flush;
 	else
 		cerr << "decode -> " << c << endl << flush;
+#endif
 
 	return c;
 }

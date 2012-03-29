@@ -21,8 +21,8 @@ namespace pompom {
 class model {
 public:
 	// Returns new instance, checking model_args
-	static model * instance(const uint16);
-
+	static model * instance(const uint8, const uint16);
+	
 	// Give running totals of the symbols in context
 	void dist(const int16, uint32[]);
 
@@ -36,9 +36,12 @@ public:
 	// Increase symbol counts
 	void update(const uint16);
 
+	// Prediction order
+	const uint8 Order;
+
 	~model();
 private:
-	model(const uint16);
+	model(const uint8, const uint16);
 	model();
 	model(const model& old);
 	const model& operator=(const model& old);

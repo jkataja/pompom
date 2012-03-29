@@ -37,11 +37,14 @@ long decompress(istream& in, ostream& out, ostream& err) {
 		return -1;
 	}
 
+	// Model order: 1 byte
+	uint8 order = in.get();
+
 	// Model memory limit: 2 bytes
 	uint16 limit = ((in.get() << 8) | in.get());
 
 	decoder dec(in);
-	unique_ptr<model> m( model::instance(limit) );
+	unique_ptr<model> m( model::instance(order, limit) );
 	uint32 dist[ R(EOS) + 1];
 
 	// Read data: terminated by EOS symbol
@@ -50,7 +53,7 @@ long decompress(istream& in, ostream& out, ostream& err) {
 	uint16 c = 0;
 	while (!dec.eof()) {
 		// Seek character range
-		for (int ord = Order ; ord >= -1 ; --ord) {
+		for (int ord = m->Order ; ord >= -1 ; --ord) {
 			m->dist(ord, dist);
 			// Symbol c has frequency in context
 			if ((c = dec.decode(dist)) != Escape)
@@ -93,32 +96,25 @@ long decompress(istream& in, ostream& out, ostream& err) {
 }
 
 long compress(istream& in, ostream& out,
-		ostream& err, const string& model_args) {
+		ostream& err, const uint8 order, const uint16 limit) {
 
-	// Model memory limit
-	uint16 limit = 0;
-	if ((limit = atol(model_args.c_str())) == 0) {
-		err << SELF << ": memory limit '" << model_args 
-			<< "' is not an integer" << endl;
-		return -1;
-	}
-
-	// Out magic and memory limit
-	out << Magia << (char)0x00;
-	out << (char)(limit >> 8) << (char)(limit & 0xFF);
-
-	encoder enc(out);
-	unique_ptr<model> m( model::instance(limit) );
+	unique_ptr<model> m( model::instance(order, limit) );
 	uint32 dist[ R(EOS) + 1];
 
+	// Out magic, order and memory limit
+	out << Magia << (char)0x00;
+	out << (char)(order & 0xFF);
+	out << (char)(limit >> 8) << (char)(limit & 0xFF);
+
 	// Write data: terminated by EOS symbol
+	encoder enc(out);
 	crc_32_type crc;
 	uint64 len = 0;
 	char b;
 	while (in.get(b)) {
 		int c = (0xFF & b);
 		// Seek character range
-		for (int ord = Order ; ord >= -1 ; --ord) {
+		for (int ord = m->Order ; ord >= -1 ; --ord) {
 			m->dist(ord, dist);
 			// Symbol c has frequency in context
 			if (dist[ L(c) ] != dist[ R(c) ])
@@ -143,7 +139,7 @@ long compress(istream& in, ostream& out,
 		++len;
 	}
 	// Escape to -1 level, output EOS
-	for (int ord = Order ; ord >= 0 ; --ord) {
+	for (int ord = m->Order ; ord >= 0 ; --ord) {
 		m->dist(ord, dist);
 		enc.encode(Escape, dist); 
 	} 

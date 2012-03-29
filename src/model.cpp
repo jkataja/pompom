@@ -15,16 +15,21 @@ using boost::format;
 
 namespace pompom {
 
-model * model::instance(const uint16 limit) {
-	if (limit < 8 || limit > 2048) {
+model * model::instance(const uint8 order, const uint16 limit) {
+	if (order < OrderMin || order > OrderMax) {
+		string err = str( format("accepted order is %1%-%2%") 
+				% OrderMin % OrderMax );
+		throw range_error(err);
+	}
+	if (limit < LimitMin || limit > LimitMax) {
 		string err = str( format("accepted limit is %1%-%2% MiB") 
 				% LimitMin % LimitMax );
 		throw range_error(err);
 	}
-	return new model(limit);
+	return new model(order, limit);
 }
 
-model::model(const uint16 limit) {
+model::model(const uint8 order, const uint16 limit) : Order(order) {
 	visit.reserve(Order);
 
 	// initialize trie

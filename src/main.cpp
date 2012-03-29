@@ -28,7 +28,8 @@ using namespace pompom;
 int main(int argc, char** argv) {
 
 	long len = -1;
-	string model_args( str( format("%1%") % LimitDefault ) );
+	uint8 order_arg(OrderDefault);
+	uint16 limit_arg(LimitDefault);
 
 	// Should improve iostream performance
 	// http://stackoverflow.com/questions/5166263/how-to-get-iostream-to-perform-better
@@ -45,7 +46,11 @@ int main(int argc, char** argv) {
 			("help,h", "show this help")
 			("stdout,c", "compress to stdout (default)")
 			("decompress,d", "decompress to stdout")
-			("limit,l", po::value<string>(), 
+			("order,o", po::value<int>(), 
+				str( format("model order (range %1%-%2%, default %3%)") 
+					% (int)OrderMin % (int)OrderMax % (int)OrderDefault).c_str()
+			)
+			("limit,l", po::value<int>(), 
 				str( format("model memory limit in MiB (range %1%-%2%, default %3%)") 
 					% LimitMin % LimitMax % LimitDefault).c_str()
 			)
@@ -60,8 +65,12 @@ int main(int argc, char** argv) {
 			return 1;
 		}
 
+		if (vm.count("order")) {
+			order_arg = vm["order"].as<int>();
+		}
+
 		if (vm.count("limit")) {
-			model_args = vm["limit"].as<string>();
+			limit_arg = vm["limit"].as<int>();
 		}
 
 		// TODO input from file
@@ -69,7 +78,7 @@ int main(int argc, char** argv) {
 		if (vm.count("decompress"))
 			len = decompress(cin, cout, cerr);
 		else
-			len = compress(cin, cout, cerr, model_args);
+			len = compress(cin, cout, cerr, order_arg, limit_arg);
 
 	}
 	catch (exception& e) {
