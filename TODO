@@ -1,0 +1,24 @@
+Known problems:
+
+1.
+
+when compiled with gcc 4.6 from osx ports, boost::program_options
+causes abort with garbage arguments:
+
+(gdb) run asdf
+Starting program: /Users/jkataja/work/github/pompom/bin/pompom asdf
+pompom(80082) malloc: *** error for object 0x1003cf860: pointer being freed was not allocated
+*** set a breakpoint in malloc_error_break to debug
+
+Program received signal SIGABRT, Aborted.
+0x00000001006a782a in __kill ()
+(gdb) bt
+#0  0x00000001006a782a in __kill ()
+#1  0x0000000100557a9c in abort ()
+#2  0x00000001005b684c in free ()
+#3  0x000000010000c5c9 in ~basic_option (this=0x7fff5fbef490) at option.hpp:24
+#4  0x00000001000c50cf in boost::program_options::detail::cmdline::run ()
+#5  0x0000000100004fdd in boost::program_options::basic_command_line_parser<char>::run (this=0x7fff5fbffa30) at detail/parsers.hpp:104
+#6  0x00000001000023ad in main (argc=2, argv=0x7fff5fbffb70) at main.cpp:67
+(gdb) 
+
