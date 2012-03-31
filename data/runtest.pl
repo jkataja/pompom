@@ -39,6 +39,8 @@ sub run_test {
 	my $file = $path.'/'.$data;
 	my $outfile = $path.'/'.$data.$Suffix;
 	die "file '$file' not readable\n" unless -r $file;
+
+	print STDERR "\trunning '$bin'\n";
 	
 	my $startc = [ Time::HiRes::gettimeofday( ) ];
 	system("$bin < '$file' > '$file.$Suffix' 2>/dev/null");
@@ -52,8 +54,8 @@ sub run_test {
 
 	my $size = -s $file.'.'.$Suffix;
 
-	my $md5orig = `md5 < '$file'`; chop $md5orig;
-	my $md5flip = `md5 < '$file.$SuffixFlip'`; chop $md5flip;
+	my $md5orig = ( split /\s/,`md5sum '$file'` )[0];
+	my $md5flip = ( split /\s/, `md5sum '$file.$SuffixFlip'` )[0];
 
 	die "uncompressed file does not match original: $bin '$file'" 
 	if $md5orig ne $md5flip;
@@ -130,6 +132,9 @@ die "pompom not found\n" unless -x '../bin/pompom';
 
 my @Calgary = qw/bib book1 book2 geo news obj1 obj2 paper1 paper2 pic progc progl progp trans/;
 
-my @cmds = ( 'gzip -1', 'gzip -9', 'bzip2 -1', 'bzip2 -9', '../bin/pompom');
+my @Largetext = qw/enwik8/;
+
+my @cmds = ( 'gzip -1', 'gzip -9', 'bzip2 -1', 'bzip2 -9', '../bin/pompom -o3', '../bin/pompom -o5 -m512' );
 
 &run_compress_tests(\@cmds, 'calgary', \@Calgary);
+#&run_compress_tests(\@cmds, 'largetext', \@Largetext);
