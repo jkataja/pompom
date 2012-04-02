@@ -24,12 +24,14 @@ using boost::format;
 using namespace pompom;
 
 #define BUFSIZE 32768
+#define USAGE "Usage: pompom [OPTION]...\n" \
+	"Compress or decompress input using fixed-order PPM compression.\n" \
+	"Reads from standard input and writes to standard output.\n" \
+	"\n"
 
 int main(int argc, char** argv) {
 
 	long len = -1;
-	uint8 order_arg(OrderDefault);
-	uint16 limit_arg(LimitDefault);
 
 	// Should improve iostream performance
 	// http://stackoverflow.com/questions/5166263/how-to-get-iostream-to-perform-better
@@ -40,45 +42,47 @@ int main(int argc, char** argv) {
 	cout.rdbuf()->pubsetbuf(outbuf, BUFSIZE);
 
 	try {
+		string order_str( str( format(
+			"compression: model order (range %1%-%2%, default %3%)") 
+				% (int)OrderMin % (int)OrderMax % (int)OrderDefault));
 
-		po::options_description desc("Usage: pompom [OPTION]");
-		desc.add_options()
-			("help,h", "show this help")
-			("stdout,c", "compress to stdout (default)")
-			("decompress,d", "decompress to stdout")
-			("order,o", po::value<int>(), 
-				str( format("model order (range %1%-%2%, default %3%)") 
-					% (int)OrderMin % (int)OrderMax % (int)OrderDefault).c_str()
+		string mem_str( str( format(
+			"compression: memory use in MiB (range %1%-%2%, default %3%)") 
+				% LimitMin % LimitMax % LimitDefault));
+
+		po::options_description args("Options");
+		args.add_options()
+			( "stdout,c", "compress to stdout (default)" )
+			( "decompress,d", "decompress to stdout" )
+			( "help,h", "show this help" )
+			( "order,o", 
+				po::value<int>()->default_value((int)OrderDefault),
+				order_str.c_str()
 			)
-			("limit,l", po::value<int>(), 
-				str( format("model memory limit in MiB (range %1%-%2%, default %3%)") 
-					% LimitMin % LimitMax % LimitDefault).c_str()
+			( "mem,m", 
+				po::value<int>()->default_value((int)LimitDefault),
+				mem_str.c_str()
 			)
 			;
 
-		po::variables_map vm;
-		po::store(po::parse_command_line(argc, argv, desc), vm);
-		po::notify(vm);    
 
-		if (vm.count("help")) {
-			cerr << desc << "" << endl;
+        po::variables_map vm;
+        po::store(po::command_line_parser(argc, argv).
+                  options(args).run(), vm);
+        po::notify(vm);
+
+		// help
+		if (vm.count("help") 
+				|| (vm.count("stdout") && vm.count("decompress")) ) {
+			cerr << USAGE << args << endl << flush;
 			return 1;
 		}
-
-		if (vm.count("order")) {
-			order_arg = vm["order"].as<int>();
-		}
-
-		if (vm.count("limit")) {
-			limit_arg = vm["limit"].as<int>();
-		}
-
-		// TODO input from file
 
 		if (vm.count("decompress"))
 			len = decompress(cin, cout, cerr);
 		else
-			len = compress(cin, cout, cerr, order_arg, limit_arg);
+			len = compress(cin, cout, cerr, vm["order"].as<int>(), 
+				vm["mem"].as<int>());
 
 	}
 	catch (exception& e) {
