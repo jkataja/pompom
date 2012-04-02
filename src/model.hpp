@@ -20,11 +20,11 @@ namespace pompom {
 
 class model {
 public:
-	// Returns new instance, checking model_args
+	// Returns new instance after checking model args
 	static model * instance(const uint8, const uint16);
 	
 	// Give running totals of the symbols in context
-	void dist(const int16, uint32[]);
+	void dist(const int16, uint32 *);
 
 	// Clean polluted entries
 	// @see http://research.microsoft.com/en-us/um/people/darkok/papers/DCC-ppm-cleaning.pdf 
@@ -38,6 +38,9 @@ public:
 
 	// Prediction order
 	const uint8 Order;
+
+	// Memory limit in MiB
+	const uint16 Limit;
 
 	~model();
 private:
@@ -57,7 +60,7 @@ private:
 };
 
 inline
-void model::dist(const int16 ord, uint32 dist[]) {
+void model::dist(const int16 ord, uint32 * dist) {
 	// Count of symbols which have frequency, used as escape frequency
 	uint32 syms = 0; 
 	// Cumulative frequency of symbols
@@ -90,7 +93,7 @@ void model::dist(const int16 ord, uint32 dist[]) {
 		return;
 	}
 
-	// seek existing context (maximum order of 3)
+	// Start from existing context
 	uint32 t = 0;
 	for (int i = ord ; i > 0 ; --i) {
 		int c = context[i];

@@ -18,7 +18,7 @@ namespace pompom {
 model * model::instance(const uint8 order, const uint16 limit) {
 	if (order < OrderMin || order > OrderMax) {
 		string err = str( format("accepted order is %1%-%2%") 
-				% OrderMin % OrderMax );
+				% (int)OrderMin % (int)OrderMax );
 		throw range_error(err);
 	}
 	if (limit < LimitMin || limit > LimitMax) {
@@ -29,10 +29,12 @@ model * model::instance(const uint8 order, const uint16 limit) {
 	return new model(order, limit);
 }
 
-model::model(const uint8 order, const uint16 limit) : Order(order) {
+model::model(const uint8 order, const uint16 limit) 
+	: Order(order), Limit(limit) 
+{
 	visit.reserve(Order);
 
-	// initialize trie
+	// TODO initialize trie
 }
 
 model::~model() {
