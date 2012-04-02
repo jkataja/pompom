@@ -29,13 +29,13 @@ static const uint16 EOS = 257;
 static const char Magia[] = "pim";
 
 // Model order
-static const uint8 OrderMin = 0;
+static const uint8 OrderMin = 1;
 static const uint8 OrderDefault = 3;
 static const uint8 OrderMax = 8;
 
 // Model memory limits 
-static const uint16 LimitMin = 8;
-static const uint16 LimitDefault = 32;
+static const uint16 LimitMin = 32;
+static const uint16 LimitDefault = 64;
 static const uint16 LimitMax = 2048;
 
 // Number of bits in a code value 
