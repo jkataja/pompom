@@ -45,7 +45,7 @@ long decompress(istream& in, ostream& out, ostream& err) {
 
 	decoder dec(in);
 	unique_ptr<model> m( model::instance(order, limit) );
-	uint32 dist[ R(EOS) + 1];
+	uint32 dist[ R(EOS) + 1 ];
 
 	// Read data: terminated by EOS symbol
 	crc_32_type crc;
@@ -99,7 +99,7 @@ long compress(istream& in, ostream& out,
 		ostream& err, const uint8 order, const uint16 limit) {
 
 	unique_ptr<model> m( model::instance(order, limit) );
-	uint32 dist[ R(EOS) + 1];
+	uint32 dist[ R(EOS) + 1 ];
 
 	// Out magic, order and memory limit
 	out << Magia << (char)0x00;
