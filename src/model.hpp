@@ -13,8 +13,13 @@
 #include <vector>
 #include <deque>
 #include <tr1/unordered_map>
+#include <boost/format.hpp>
 
 #include "pompom.hpp"
+#include "ppmtrie.hpp"
+
+using boost::str;
+using boost::format;
 
 namespace pompom {
 
@@ -122,14 +127,14 @@ void model::dist(const int16 ord, uint32 * dist) {
 inline
 model * model::instance(const uint8 order, const uint16 limit) {
 	if (order < OrderMin || order > OrderMax) {
-		string err = str( format("accepted order is %1%-%2%") 
+		std::string err = str( format("accepted order is %1%-%2%") 
 				% (int)OrderMin % (int)OrderMax );
-		throw range_error(err);
+		throw std::range_error(err);
 	}
 	if (limit < LimitMin || limit > LimitMax) {
-		string err = str( format("accepted limit is %1%-%2% MiB") 
+		std::string err = str( format("accepted limit is %1%-%2% MiB") 
 				% LimitMin % LimitMax );
-		throw range_error(err);
+		throw std::range_error(err);
 	}
 	return new model(order, limit);
 }
@@ -152,21 +157,21 @@ inline
 void model::update(const uint16 c) { 
 #ifndef HAPPY_GO_LUCKY
 	if (c > Alpha) {
-		throw range_error("update character out of range");
+		throw std::range_error("update character out of range");
 	}
 #endif
 	// Check if maximum frequency would be met, rescale if necessary
 	bool outscale = false;
-	BOOST_FOREACH ( uint32 node, visit ) {
-		outscale = (outscale || nodecnt[(node << 8) | c] >= TopValue - 1);
+	for (auto it = visit.begin() ; it != visit.end() ; it++ ) {
+		outscale = (outscale || nodecnt[((*it) << 8) | c] >= TopValue - 1);
 	}
 	if (outscale)
 		rescale();
 
 	// Update frequency of c from visited nodes
 	// Don't update lower order contexts ("update exclusion")
-	BOOST_FOREACH ( uint32 node, visit ) {
-		++nodecnt[(node << 8) | c];
+	for (auto it = visit.begin() ; it != visit.end() ; it++ ) {
+		++nodecnt[((*it) << 8) | c];
 	}
 	visit.clear();
 
