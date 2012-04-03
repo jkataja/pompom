@@ -100,20 +100,13 @@ sub run_compress_tests {
 			print ",$bpc"; 
 		}
 		print "\n";
-		# compress time
+		# compress and decompress time
 		print ",";
 		foreach my $bin (@$cmds) { 
 			$bin = &pretty_bin($bin);
 			my $timec = $tests{$file}->{$bin}->{'timec'};
-			print ",".&pretty_time($timec); 
-		}
-		print "\n";
-		# decompress time
-		print ",";
-		foreach my $bin (@$cmds) { 
-			$bin = &pretty_bin($bin);
 			my $timed = $tests{$file}->{$bin}->{'timed'};
-			print ",".&pretty_time($timed); 
+			print ",".&pretty_time($timec+$timed); 
 		}
 		print "\n";
 	}
