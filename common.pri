@@ -1,10 +1,11 @@
 QMAKE_CXXFLAGS += -std=c++0x \
+	-march=native \
 	-finline-functions \
+	-funroll-loops \
 	-funswitch-loops \
-	-fpredictive-commoning \
-	-fgcse-after-reload \
 	-ftree-vectorize \
-	-march=native
+	-fpredictive-commoning \
+	-fgcse-after-reload 
 
 # ports
 macx {
