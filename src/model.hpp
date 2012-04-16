@@ -75,10 +75,6 @@ void model::dist(const int16 ord, uint32 * dist) {
 	// Give 1 frequency to symbols which have no frequency in 0th order
 	if (ord == -1) { 
 		for (int c = 0 ; c <= EOS ; ++c) {
-			/*
-			if (dist[ R(c) ] == last)
-				++run; 
-			*/
 			run += (dist[ R(c) ] == last);
 			last = dist[ R(c) ];
 			dist[ R(c) ] = run;
@@ -97,13 +93,20 @@ void model::dist(const int16 ord, uint32 * dist) {
 	}
 
 	// Start from existing context
-	uint32 t = 0;
-	for (int i = ord ; i > 0 ; --i) {
+	int i = ord;
+	uint32 node = RootBase;
+	while (--i > 0) {
 		int c = context[i];
-		t = (t << 8) | c;
+		if (!seentrie(node, c))
+			break;
+		node = ppm->walk(node, c);
 	}
-
-	// TODO trie: have no context - add 0 counts
+	// Have no context - add 0 counts to trie and give escape
+	while (--i > 0) {
+		insert()
+		dist[ R(Escape) ] = dist[ R(EOS) ] = 1;
+		return;
+	}
 
 	// seek successor states from node (following letters)
 	for (int c = 0 ; c <= Alpha ; ++c) {
