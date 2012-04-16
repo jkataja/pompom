@@ -5,7 +5,8 @@ QMAKE_CXXFLAGS += -std=c++0x \
 	-funswitch-loops \
 	-ftree-vectorize \
 	-fpredictive-commoning \
-	-fgcse-after-reload 
+	-fgcse-after-reload \
+	-Wno-ignored-qualifiers
 
 # ports
 macx {
