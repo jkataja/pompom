@@ -58,6 +58,8 @@ private:
 
 	// Context+Following letters (4 characters) -> frequency
 	std::tr1::unordered_map<uint32,uint32> nodecnt;
+
+	ppmtrie * contexttrie;
 };
 
 inline
@@ -141,16 +143,15 @@ model * model::instance(const uint8 order, const uint16 limit) {
 
 inline
 model::model(const uint8 order, const uint16 limit) 
-	: Order(order), Limit(limit) 
+	: Order(order), Limit(limit), contexttrie(0)
 {
 	visit.reserve(Order);
-
-	// TODO initialize trie
+	contexttrie = new ppmtrie(limit);
 }
 
 inline
 model::~model() {
-	// TODO delete trie
+	delete contexttrie;
 }
 
 inline
