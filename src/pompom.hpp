@@ -31,7 +31,7 @@ static const char Magia[] = "pim";
 // Model order
 static const uint8 OrderMin = 1;
 static const uint8 OrderDefault = 3;
-static const uint8 OrderMax = 8;
+static const uint8 OrderMax = 6;
 
 // Model memory limits 
 static const uint16 LimitMin = 32;
