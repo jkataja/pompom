@@ -12,7 +12,6 @@
 #include <iostream>
 #include <vector>
 #include <deque>
-#include <tr1/unordered_map>
 #include <boost/format.hpp>
 
 #include "pompom.hpp"
