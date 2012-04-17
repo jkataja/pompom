@@ -63,6 +63,12 @@ public:
 	// insert new context after parent with vine
 	const uint32 insert(const uint32, const uint32, const uint8 c);
 
+	// Base index of nodes
+	static const uint32 RootBase = 1;
+
+	// Reserve for all values in 0th order model
+	static const uint32 CellBase = Alpha;
+
 	ppmtrie(const uint16);
 	~ppmtrie();
 private:
@@ -78,12 +84,6 @@ private:
 
 	// Select node to be moved to another cell location
 	const uint32 selectmove(const uint32 a, const uint32 b);
-
-	// Base index of nodes
-	static const uint32 RootBase = 1;
-
-	// Reserve for all values in 0th order model
-	static const uint32 CellBase = Alpha;
 
 	// Reset trie data
 	void reset();
