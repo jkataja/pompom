@@ -16,7 +16,7 @@
 #include <boost/format.hpp>
 
 #include "pompom.hpp"
-#include "ppmtrie.hpp"
+#include "cuckoo.hpp"
 
 using boost::str;
 using boost::format;
@@ -56,10 +56,8 @@ private:
 	// Visited nodes
 	std::vector<int> visit;
 
-	// Context+Following letters (4 characters) -> frequency
-	std::tr1::unordered_map<uint32,uint32> nodecnt;
-
-	ppmtrie * contexttrie;
+	// Length+Context (0-7 characters; uint64) -> Frequency (uint16)
+	cuckoo * contextfreq;
 };
 
 inline
@@ -93,19 +91,10 @@ void model::dist(const int16 ord, uint32 * dist) {
 	}
 
 	// Start from existing context
-	int i = ord;
-	uint32 node = RootBase;
-	while (--i > 0) {
+	uint64 t = (ord + 1) << 8;
+	for (int i = ord ; i > 0 ; --i) {
 		int c = context[i];
-		if (!seentrie(node, c))
-			break;
-		node = ppm->walk(node, c);
-	}
-	// Have no context - add 0 counts to trie and give escape
-	while (--i > 0) {
-		insert()
-		dist[ R(Escape) ] = dist[ R(EOS) ] = 1;
-		return;
+		t = (t << 8L) | c;
 	}
 
 	// seek successor states from node (following letters)
@@ -113,7 +102,7 @@ void model::dist(const int16 ord, uint32 * dist) {
 		// Only add if symbol had 0 frequency in higher order
 		if (dist[ R(c) ] == last) {
 			// Frequency of following context
-			int freq = nodecnt[(t << 8) | c];
+			int freq = contextfreq->count((t << 8L) | c);
 			// Update cumulative frequency
 			run += freq;
 			// Count of symbols in context
@@ -146,15 +135,15 @@ model * model::instance(const uint8 order, const uint16 limit) {
 
 inline
 model::model(const uint8 order, const uint16 limit) 
-	: Order(order), Limit(limit), contexttrie(0)
+	: Order(order), Limit(limit), contextfreq(0)
 {
 	visit.reserve(Order);
-	contexttrie = new ppmtrie(limit);
+	contextfreq = new cuckoo(limit);
 }
 
 inline
 model::~model() {
-	delete contexttrie;
+	delete contextfreq;
 }
 
 inline
@@ -167,7 +156,8 @@ void model::update(const uint16 c) {
 	// Check if maximum frequency would be met, rescale if necessary
 	bool outscale = false;
 	for (auto it = visit.begin() ; it != visit.end() ; it++ ) {
-		outscale = (outscale || nodecnt[((*it) << 8) | c] >= TopValue - 1);
+		uint64 t = ((*it) << 8L) | c;
+		outscale = (outscale || contextfreq->count(t) >= TopValue - 1);
 	}
 	if (outscale)
 		rescale();
@@ -175,7 +165,8 @@ void model::update(const uint16 c) {
 	// Update frequency of c from visited nodes
 	// Don't update lower order contexts ("update exclusion")
 	for (auto it = visit.begin() ; it != visit.end() ; it++ ) {
-		++nodecnt[((*it) << 8) | c];
+		uint64 t = ((*it) << 8L) | c;
+		contextfreq->seen(t);
 	}
 	visit.clear();
 
@@ -189,11 +180,7 @@ void model::update(const uint16 c) {
 inline
 void model::rescale() {
 	// Rescale all entries
-	for (auto it = nodecnt.begin() ; it != nodecnt.end(); ++it) {
-		it->second >>= 1;
-		if (it->second < 1) 
-			it->second = 1;
-	}
+	contextfreq->rescale();
 }
 
 } // namespace
