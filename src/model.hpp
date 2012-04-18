@@ -28,13 +28,13 @@ public:
 	static model * instance(const uint8, const uint16);
 	
 	// Give running totals of the symbols in context
-	INLINE_CANDIDATE void dist(const int16, uint32 *);
+	inline void dist(const int16, uint32 *);
 
 	// Rescale when largest frequency has met limit
 	void rescale();
 
 	// Increase symbol counts
-	INLINE_CANDIDATE void update(const uint16);
+	inline void update(const uint16);
 
 	// Prediction order
 	const uint8 Order;
@@ -89,19 +89,18 @@ void model::dist(const int16 ord, uint32 * dist) {
 	}
 
 	// Existing context in 64b int
-	uint64 t = 0;
+	uint64 keybase = 0;
 	for (int i = ord - 1 ; i >= 0 ; --i) 
-		t |= (0xFFL & context[i]) << (i << 3); // characters in context
-	t <<= 8; // character in data to be added
-	t |= (ord + 1L) << 56; // length
-	//std::cerr << "key = " << std::hex << t << std::dec << " ord = " << ord << " key_str(...) = " << contextfreq->key_str(t) << std::endl; XXX
+		keybase |= (0xFFL & context[i]) << (i << 3); // context chars
+	keybase <<= 8; // char in data to be added
+	keybase |= (ord + 1L) << 56; // length
 
 	// Seek successor states from node (following letters)
 	for (int c = 0 ; c <= Alpha ; ++c) {
 		// Only add if symbol had 0 frequency in higher order
 		if (dist[ R(c) ] == last) {
 			// Frequency of following context
-			int freq = contextfreq->count(t | c);
+			int freq = contextfreq->count(keybase | c);
 			// Update cumulative frequency
 			run += freq;
 			// Count of symbols in context
@@ -114,7 +113,7 @@ void model::dist(const int16 ord, uint32 * dist) {
 	// Symbols in context, zero frequency for EOS
 	dist[ R(EOS) ] = dist[ R(Escape) ] = run + (syms > 0 ? syms : 1); 
 
-	visit.push_back(t);
+	visit.push_back(keybase);
 }
 
 model * model::instance(const uint8 order, const uint16 limit) {
@@ -168,7 +167,6 @@ void model::update(const uint16 c) {
 	// Instead of rehashing, clear context data when preset size is full
 	if (contextfreq->full()) {
 		contextfreq->reset();
-		std::cerr << "ZAP" << std::endl;
 		// TODO update last 2k or so
 	}
 

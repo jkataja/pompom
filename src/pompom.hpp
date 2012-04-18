@@ -34,12 +34,15 @@ static const uint8 OrderDefault = 3;
 static const uint8 OrderMax = 6;
 
 // Model memory limits 
-static const uint16 LimitMin = 32;
-static const uint16 LimitDefault = 64;
+static const uint16 LimitMin = 8;
+static const uint16 LimitDefault = 32;
 static const uint16 LimitMax = 2048;
 
 // Number of bits in a code value 
 static const uint8 CodeValueBits = 16;
+
+// CRC32 checksum initial value
+static const uint32 CRCInit = 0xFFFFFFFF;
 
 // Largest code value
 static const uint64 TopValue = (((uint64) 1 << CodeValueBits) - 1);

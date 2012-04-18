@@ -4,8 +4,8 @@
 #include <cassert>
 #include <cstring>
 #include <stdexcept>
-#include <boost/crc.hpp>
 #include <boost/format.hpp>
+#include <boost/crc.hpp>
 
 #include "pompom.hpp"
 #include "model.hpp"
@@ -106,9 +106,12 @@ long compress(istream& in, ostream& out,
 	out << (char)(order & 0xFF);
 	out << (char)(limit >> 8) << (char)(limit & 0xFF);
 
+	// Use boost CRC even when hardware intrisics would be available.
+	// Just to be sure encoder/decoder use same CRC algorithm.
+	crc_32_type crc;
+	
 	// Write data: terminated by EOS symbol
 	encoder enc(out);
-	crc_32_type crc;
 	uint64 len = 0;
 	char b;
 	while (in.get(b)) {

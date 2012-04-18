@@ -1,5 +1,5 @@
 /**
- * Context frequency logging cuckoo hash for PPM compression. 
+ * Context frequency keeping cuckoo hash for PPM compression. 
  *
  * @see http://www.it-c.dk/people/pagh/papers/cuckoo-jour.pdf
  * @author jkataja
@@ -9,7 +9,6 @@
 
 #include <iostream>
 #include <stdexcept>
-#include <bitset>
 
 #include "pompom.hpp"
 #include "pompomdefs.hpp"
@@ -19,13 +18,13 @@ namespace pompom {
 class cuckoo {
 public:
 	// Frequency of context
-	INLINE_CANDIDATE const uint16 count(const uint64) const;
+	inline const uint16 count(const uint64) const;
 
 	// Context is contained in cuckoo hash
-	INLINE_CANDIDATE const bool contains(const uint64) const;
+	inline const bool contains(const uint64) const;
 
 	// Size allocated for hash data is full	
-	INLINE_CANDIDATE const bool full() const;
+	inline const bool full() const;
 
 	// Reset array contents
 	void reset();
@@ -34,14 +33,18 @@ public:
 	void rescale();
 
 	// Insert new context
-	INLINE_CANDIDATE const bool insert(uint64);
+	inline const bool insert(uint64);
 
 	// Increase frequency of context
-	INLINE_CANDIDATE const bool seen(const uint64);
+	inline const bool seen(const uint64);
 
 	// Hashing functions
-	INLINE_CANDIDATE const uint32 h1(const uint64) const;
-	INLINE_CANDIDATE const uint32 h2(const uint64) const;
+	// CRC32c hardware intrisics in i5/i7 or later
+	// FNV-1a in software
+	// h1 and h2 differ in taking different byte order 56781234 vs 12345678
+	// From test run appears two hashes give fill of approx. 50%
+	inline const uint32 h1(const uint64) const;
+	inline const uint32 h2(const uint64) const;
 
 	cuckoo(const size_t);
 	~cuckoo();
@@ -57,7 +60,7 @@ private:
 	// Recent insert(..) resulted in terminated loop
 	bool maxloop_terminated;
 
-	// Context in 64 bit int
+	// Contexts in 64 bit int (1 byte of length, 7 bytes of context)
 	uint64 * keys;
 
 	// Context frequency count
@@ -66,11 +69,16 @@ private:
 	// Length of allocated keys and values 
 	size_t len;
 
-	// Output tree (for debugging)
-	void print_r() const;
+	// Count of filled contexts (used for fill rate)
+	const uint32 filled() const;
 
 	// Output context key to string (for debugging)
 	const std::string key_str(uint64 key) const;
+
+	// Constants for hashing functions
+	static const uint64 FNV_prime = 1099511628211L;
+	static const uint64 FNV_offset_basis = 14695981039346656037L;
+
 };
 
 cuckoo::cuckoo(const size_t mem) {
@@ -129,14 +137,14 @@ const bool cuckoo::insert(uint64 key) {
 	uint32 pos = h1(key);
 	uint16 value = 0;
 	for (size_t n = 0 ; n < MaxLoop ; ++n) {
-		// found an empty nest
+		// found an empty bucket
 		if (keys[pos] == 0) { 
 			keys[pos] = key; 
 			values[pos] = value;
 			return true;
 		}
 
-		// find new home nest
+		// kick a can down the road
 		std::swap(key, keys[pos]);
 		std::swap(value, values[pos]);
 		if (pos == h1(key)) 
@@ -147,9 +155,15 @@ const bool cuckoo::insert(uint64 key) {
 
 	maxloop_terminated = true;
 	//rehash(); insert(x)
-#ifndef UNSAFE
-	print_r();
+
+#ifdef DEBUG
+	uint32 fill = filled();
+	float rate = (float)fill/len * 100;
+	std::cerr << "reset with load factor " << std::fixed 
+			<< std::setprecision(3) << rate << "% "
+			<< fill<< "/"<< len << std::endl;
 #endif
+
 	return false;
 }
 
@@ -162,8 +176,15 @@ const bool cuckoo::seen(const uint64 key) {
 	uint32 b = h2(key);
 	if (keys[a] == key)
 		++values[a];
-	else // keys[b] == key
+	else 
+#ifndef UNSAFE
+	if (keys[b] == key)
+#endif
 		++values[b];
+#ifndef UNSAFE
+	else
+		throw new std::runtime_error("no context key match with h1 or h2");
+#endif
 	
 	return true;
 }
@@ -173,13 +194,15 @@ const bool cuckoo::full() const {
 }
 
 void cuckoo::rescale() {
+#ifdef DEBUG
+	std::cerr << "rescale" << std::endl; 
+#endif
 	for (size_t i = 0 ; i < len ; ++i) {
 		if (values[i] == 0)
 			continue;
 		values[i] >>= 1;
 		if (values[i] == 0)
 			values[i] = 0;
-
 	}
 }
 
@@ -193,43 +216,38 @@ const std::string cuckoo::key_str(uint64 key) const {
 	return s.append("'");
 }
 
-void cuckoo::print_r() const {
+const uint32 cuckoo::filled() const {
 	int filled = 0;
 	for (size_t p = 0 ; p<len ; ++p) {
 		if (keys[p] == 0)
 			continue;
-		std::cerr << key_str(keys[p]) << "\t-> " << values[p]  << "\t" << h1(keys[p]) << "\t" << h2(keys[p]) << std::endl;
 		++filled;
 	}
-	std::cerr << "fill rate " << std::fixed << std::setprecision(3) << ((double)filled/len) << std::endl; 
+	return filled;
 }
 
 const uint32 cuckoo::h1(const uint64 key) const {
-	// fnv-1a
-	// @see https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function
-	static const uint64 FNV_prime = 1099511628211L;
-	static const uint64 FNV_offset_basis = 14695981039346656037L;
-
-	uint64 hash = FNV_offset_basis;
-	for (int i = 0 ; i < 8 ; ++i) { // -funrolled
-		hash = (hash ^ ((key >> (i << 3)) & 0xFF)) * FNV_prime;
-	}
-	return hash % len;
+#ifdef BUILTIN_CRC
+	const uint32 * p = ((const uint32 *) &key);
+	uint32 crc = CRCInit;
+	crc = __builtin_ia32_crc32si(crc, *(p + 1));
+	crc = __builtin_ia32_crc32si(crc, *(p));
+	return (crc % len);
+#else
+	return 0;
+#endif
 }
 
 const uint32 cuckoo::h2(const uint64 key) const {
-	// Jenkins one-at-a-time
-	// @see https://en.wikipedia.org/wiki/Jenkins_hash_function
-	uint32_t hash, i;
-	for (hash = i = 0 ; i < 8 ; ++i) { // -funrolled
-		hash += ((key >> (i << 3)) & 0xFF);
-		hash += (hash << 10);
-		hash ^= (hash >> 6);
-	}
-	hash += (hash << 3);
-	hash ^= (hash >> 11);
-	hash += (hash << 15);
-	return hash % len;
+#ifdef BUILTIN_CRC
+	const uint32 * p = ((const uint32 *) &key);
+	uint32 crc = CRCInit;
+	crc = __builtin_ia32_crc32si(crc, *(p));
+	crc = __builtin_ia32_crc32si(crc, *(p + 1));
+	return (crc % len);
+#else
+	return 1;
+#endif
 }
 
 } // namespace
