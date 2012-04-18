@@ -6,7 +6,9 @@ QMAKE_CXXFLAGS += -std=c++0x \
 	-ftree-vectorize \
 	-fpredictive-commoning \
 	-fgcse-after-reload \
-	-Wno-ignored-qualifiers
+	-Wno-ignored-qualifiers \
+	-DINLINE_CANDIDATE="inline" \
+	-DUNSAFE
 
 # ports
 macx {

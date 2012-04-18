@@ -19,13 +19,13 @@ namespace pompom {
 class cuckoo {
 public:
 	// Frequency of context
-	const uint16 count(const uint64) const;
+	INLINE_CANDIDATE const uint16 count(const uint64) const;
 
 	// Context is contained in cuckoo hash
-	const bool contains(const uint64) const;
+	INLINE_CANDIDATE const bool contains(const uint64) const;
 
 	// Size allocated for hash data is full	
-	const bool full() const;
+	INLINE_CANDIDATE const bool full() const;
 
 	// Reset array contents
 	void reset();
@@ -34,17 +34,18 @@ public:
 	void rescale();
 
 	// Insert new context
-	const bool insert(uint64);
+	INLINE_CANDIDATE const bool insert(uint64);
 
 	// Increase frequency of context
-	const bool seen(const uint64);
+	INLINE_CANDIDATE const bool seen(const uint64);
 
 	// Hashing functions
-	const uint32 h1(const uint64) const;
-	const uint32 h2(const uint64) const;
+	INLINE_CANDIDATE const uint32 h1(const uint64) const;
+	INLINE_CANDIDATE const uint32 h2(const uint64) const;
 
 	cuckoo(const size_t);
 	~cuckoo();
+
 private:
 	cuckoo();
 	cuckoo(const cuckoo& old);
@@ -52,9 +53,6 @@ private:
 	
 	// Maximum number of repetitions
 	static const uint32 MaxLoop = 10000;
-
-	// Output tree for debugging
-	void print_r() const;
 
 	// Recent insert(..) resulted in terminated loop
 	bool maxloop_terminated;
@@ -67,18 +65,24 @@ private:
 
 	// Length of allocated keys and values 
 	size_t len;
+
+	// Output tree (for debugging)
+	void print_r() const;
+
+	// Output context key to string (for debugging)
+	const std::string key_str(uint64 key) const;
 };
 
 cuckoo::cuckoo(const size_t mem) {
 	len = (mem * 1 << 20) / (sizeof(uint64) + sizeof(uint16) );
 
 	keys = (uint64 *) malloc(len * sizeof(uint64));
-	if (keys == 0) {
+	if (!keys) {
 		throw std::runtime_error("couldn't allocate cuckoo keys");
 	}
 
 	values = (uint16 *) malloc(len * sizeof(uint16));
-	if (values == 0) {
+	if (!values) {
 		free(keys);
 		throw std::runtime_error("couldn't allocate cuckoo values");
 	}
@@ -92,28 +96,25 @@ cuckoo::~cuckoo() {
 }
 
 void cuckoo::reset() {
-	memset(keys, 0, len * sizeof(keys));
-	memset(values, 0, len * sizeof(values));
+	memset(keys, 0, len * sizeof(uint64));
+	memset(values, 0, len * sizeof(uint16));
 	maxloop_terminated = false;
 }
 
-inline
 const uint16 cuckoo::count(const uint64 key) const {
 	uint32 a = h1(key);
-	uint32 b = h2(key);
 	if (keys[a] == key)
 		return values[a];
-	else if (keys[b] == key)
+	uint32 b = h2(key);
+	if (keys[b] == key)
 		return values[b];
 	return 0;
 }
 
-inline
 const bool cuckoo::contains(const uint64 key) const {
 	return (keys[h1(key)] == key || keys[h2(key)] == key);
 }
 
-inline
 const bool cuckoo::insert(uint64 key) {
 	if (contains(key))
 		return true;
@@ -146,13 +147,12 @@ const bool cuckoo::insert(uint64 key) {
 
 	maxloop_terminated = true;
 	//rehash(); insert(x)
-#ifndef HAPPY_GO_LUCKY
+#ifndef UNSAFE
 	print_r();
 #endif
 	return false;
 }
 
-inline
 const bool cuckoo::seen(const uint64 key) {
 	if (!contains(key))
 		if (!insert(key))
@@ -168,9 +168,8 @@ const bool cuckoo::seen(const uint64 key) {
 	return true;
 }
 
-inline
 const bool cuckoo::full() const {
-	return !maxloop_terminated;
+	return maxloop_terminated;
 }
 
 void cuckoo::rescale() {
@@ -184,26 +183,53 @@ void cuckoo::rescale() {
 	}
 }
 
+const std::string cuckoo::key_str(uint64 key) const {
+	std::string s("'");
+	int ord = (key >> 56) - 1;
+	for (int i = ord ; i >= 0 ; --i) {
+		char c = ((key >> (i << 3)) & 0xFF); // characters in context
+		s += (c >= ' ' && c <= '~' ? c : '_');
+	}
+	return s.append("'");
+}
+
 void cuckoo::print_r() const {
 	int filled = 0;
-	for (size_t i = 0 ; i<len ; ++i) {
-		if (keys[i] != 0)
-			++filled;
-
+	for (size_t p = 0 ; p<len ; ++p) {
+		if (keys[p] == 0)
+			continue;
+		std::cerr << key_str(keys[p]) << "\t-> " << values[p]  << "\t" << h1(keys[p]) << "\t" << h2(keys[p]) << std::endl;
+		++filled;
 	}
-	std::cerr << "cuckoo hash terminated, fill rate " << std::setprecision(3) << ((double)filled/len) << std::endl; 
+	std::cerr << "fill rate " << std::fixed << std::setprecision(3) << ((double)filled/len) << std::endl; 
 }
 
-inline
 const uint32 cuckoo::h1(const uint64 key) const {
-	return key % len;
+	// fnv-1a
+	// @see https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function
+	static const uint64 FNV_prime = 1099511628211L;
+	static const uint64 FNV_offset_basis = 14695981039346656037L;
+
+	uint64 hash = FNV_offset_basis;
+	for (int i = 0 ; i < 8 ; ++i) { // -funrolled
+		hash = (hash ^ ((key >> (i << 3)) & 0xFF)) * FNV_prime;
+	}
+	return hash % len;
 }
 
-inline
 const uint32 cuckoo::h2(const uint64 key) const {
-	return (key + 1) % len;
+	// Jenkins one-at-a-time
+	// @see https://en.wikipedia.org/wiki/Jenkins_hash_function
+	uint32_t hash, i;
+	for (hash = i = 0 ; i < 8 ; ++i) { // -funrolled
+		hash += ((key >> (i << 3)) & 0xFF);
+		hash += (hash << 10);
+		hash ^= (hash >> 6);
+	}
+	hash += (hash << 3);
+	hash ^= (hash >> 11);
+	hash += (hash << 15);
+	return hash % len;
 }
-
-
 
 } // namespace

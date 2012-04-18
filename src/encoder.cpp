@@ -11,7 +11,7 @@ namespace pompom {
 
 void encoder::encode(const uint16 c, const uint32 dist[]) {
 
-#ifndef HAPPY_GO_LUCKY
+#ifndef UNSAFE
 	if (c > EOS) {
 		throw range_error("symbol not in code range");
 	}
@@ -50,7 +50,6 @@ const long encoder::len() {
 
 void encoder::finish() {
 	// TODO Write pending 
-	cerr << "H = " << hsum << endl << flush;
 	if (p > 0) {
 		out.write(buf, p);
 		p = 0;

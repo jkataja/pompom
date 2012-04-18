@@ -59,7 +59,7 @@ long decompress(istream& in, ostream& out, ostream& err) {
 			if ((c = dec.decode(dist)) != Escape)
 				break;
 		} 
-#ifndef HAPPY_GO_LUCKY
+#ifndef UNSAFE
 		if (c == Escape) {
 			throw range_error("seek character range leaked escape");
 		}
@@ -124,7 +124,7 @@ long compress(istream& in, ostream& out,
 		} 
 		
 		// Output
-#ifndef HAPPY_GO_LUCKY
+#ifndef UNSAFE
 		if (dist[ L(c) ] == dist[ R(c) ]) {
 			throw range_error(
 				str ( format("zero frequency for symbol %1%") % (int)c ) 
@@ -144,7 +144,7 @@ long compress(istream& in, ostream& out,
 		enc.encode(Escape, dist); 
 	} 
 	m->dist(-1, dist);
-#ifndef HAPPY_GO_LUCKY
+#ifndef UNSAFE
 	if (dist[ L(EOS) ] == dist[ R(EOS) ]) {
 		throw range_error("zero frequency for EOS");
 	}

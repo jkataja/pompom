@@ -11,6 +11,10 @@
 #define L(x) ((int)x)
 #define R(x) ((int)x+1)
 
+#ifndef INLINE_CANDIATE
+#define INLINE_CANDIDATE
+#endif
+
 namespace pompom {
 
 // Common typedefs for different sizes of integers 

@@ -28,13 +28,13 @@ public:
 	static model * instance(const uint8, const uint16);
 	
 	// Give running totals of the symbols in context
-	void dist(const int16, uint32 *);
+	INLINE_CANDIDATE void dist(const int16, uint32 *);
 
 	// Rescale when largest frequency has met limit
 	void rescale();
 
 	// Increase symbol counts
-	void update(const uint16);
+	INLINE_CANDIDATE void update(const uint16);
 
 	// Prediction order
 	const uint8 Order;
@@ -53,13 +53,12 @@ private:
 	std::deque<int> context;
 
 	// Visited nodes
-	std::vector<int> visit;
+	std::vector<uint64> visit;
 
 	// Length+Context (0-7 characters; uint64) -> Frequency (uint16)
 	cuckoo * contextfreq;
 };
 
-inline
 void model::dist(const int16 ord, uint32 * dist) {
 	// Count of symbols which have frequency, used as escape frequency
 	uint32 syms = 0; 
@@ -89,19 +88,20 @@ void model::dist(const int16 ord, uint32 * dist) {
 		return;
 	}
 
-	// Start from existing context
-	uint64 t = (ord + 1) << 8;
-	for (int i = ord ; i > 0 ; --i) {
-		int c = context[i];
-		t = (t << 8L) | c;
-	}
+	// Existing context in 64b int
+	uint64 t = 0;
+	for (int i = ord - 1 ; i >= 0 ; --i) 
+		t |= (0xFFL & context[i]) << (i << 3); // characters in context
+	t <<= 8; // character in data to be added
+	t |= (ord + 1L) << 56; // length
+	//std::cerr << "key = " << std::hex << t << std::dec << " ord = " << ord << " key_str(...) = " << contextfreq->key_str(t) << std::endl; XXX
 
-	// seek successor states from node (following letters)
+	// Seek successor states from node (following letters)
 	for (int c = 0 ; c <= Alpha ; ++c) {
 		// Only add if symbol had 0 frequency in higher order
 		if (dist[ R(c) ] == last) {
 			// Frequency of following context
-			int freq = contextfreq->count((t << 8L) | c);
+			int freq = contextfreq->count(t | c);
 			// Update cumulative frequency
 			run += freq;
 			// Count of symbols in context
@@ -117,22 +117,20 @@ void model::dist(const int16 ord, uint32 * dist) {
 	visit.push_back(t);
 }
 
-inline
 model * model::instance(const uint8 order, const uint16 limit) {
 	if (order < OrderMin || order > OrderMax) {
-		std::string err = str( format("accepted order is %1%-%2%") 
+		std::string err = str( format("accepted range for order is %1%-%2%") 
 				% (int)OrderMin % (int)OrderMax );
 		throw std::range_error(err);
 	}
 	if (limit < LimitMin || limit > LimitMax) {
-		std::string err = str( format("accepted limit is %1%-%2% MiB") 
+		std::string err = str( format("accepted range for memory limit is %1%-%2% (in MiB)") 
 				% LimitMin % LimitMax );
 		throw std::range_error(err);
 	}
 	return new model(order, limit);
 }
 
-inline
 model::model(const uint8 order, const uint16 limit) 
 	: Order(order), Limit(limit), contextfreq(0)
 {
@@ -140,14 +138,12 @@ model::model(const uint8 order, const uint16 limit)
 	contextfreq = new cuckoo(limit);
 }
 
-inline
 model::~model() {
 	delete contextfreq;
 }
 
-inline
 void model::update(const uint16 c) { 
-#ifndef HAPPY_GO_LUCKY
+#ifndef UNSAFE
 	if (c > Alpha) {
 		throw std::range_error("update character out of range");
 	}
@@ -155,7 +151,7 @@ void model::update(const uint16 c) {
 	// Check if maximum frequency would be met, rescale if necessary
 	bool outscale = false;
 	for (auto it = visit.begin() ; it != visit.end() ; it++ ) {
-		uint64 t = ((*it) << 8L) | c;
+		uint64 t = (*it) | c;
 		outscale = (outscale || contextfreq->count(t) >= TopValue - 1);
 	}
 	if (outscale)
@@ -164,10 +160,17 @@ void model::update(const uint16 c) {
 	// Update frequency of c from visited nodes
 	// Don't update lower order contexts ("update exclusion")
 	for (auto it = visit.begin() ; it != visit.end() ; it++ ) {
-		uint64 t = ((*it) << 8L) | c;
+		uint64 t = (*it) | c;
 		contextfreq->seen(t);
 	}
 	visit.clear();
+
+	// Instead of rehashing, clear context data when preset size is full
+	if (contextfreq->full()) {
+		contextfreq->reset();
+		std::cerr << "ZAP" << std::endl;
+		// TODO update last 2k or so
+	}
 
 	// Update text context
 	if (context.size() == Order)
@@ -176,7 +179,6 @@ void model::update(const uint16 c) {
 
 }
 
-inline
 void model::rescale() {
 	// Rescale all entries
 	contextfreq->rescale();
