@@ -6,3 +6,33 @@ Janne J Kataja (PPM compression)
 
 Contact:
 firstname.lastname @ cs.helsinki.fi
+
+
+Configure:
+
+    $ $VISUAL common.pri
+
+	Setting -DBUILTIN_CRC enables hardware CRC32 intrisics.
+	Otherwise, software hashes will be used. This will affect
+	compression performance.
+
+Build:
+
+    $ qmake
+    $ make
+
+Run:
+
+    $ bin/pompom -h
+
+Usage: pompom [OPTION]...
+Compress or decompress input using fixed-order PPM compression.
+Reads from standard input and writes to standard output.
+
+Options:
+  -c [ --stdout ]         compress to stdout (default)
+  -d [ --decompress ]     decompress to stdout
+  -h [ --help ]           show this help
+  -o [ --order ] arg (=3) compression: model order (range 1-6, default 3)
+  -m [ --mem ] arg (=32)  compression: memory use MiB (range 8-2048, default 
+                          32)
