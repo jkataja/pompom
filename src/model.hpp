@@ -105,7 +105,6 @@ void model::dist(const int16 ord, uint32 * dist) {
 	// Following letters in parent context
 	const uint64 * vec = contextfreq->get_follower_vec(parent);
 
-#if 0
 	// No symbols in context, assign 1/1 to escape
 	if (vec[0] == 0 && vec[1] == 0 && vec[2] == 0 && vec[3] == 0) {
 		memset(dist, 0, sizeof(int) * (R(EOS) + 1));
@@ -113,7 +112,6 @@ void model::dist(const int16 ord, uint32 * dist) {
 		visit.push_back(keybase);
 		return;
 	}
-#endif
 
 	// Add counts for successor chars from context
 	int p = 0;
