@@ -12,16 +12,17 @@ Configure:
 
 $ $VISUAL common.pri
 
-	Edit the -march=___ , msse4.2 and -mcrc32 gcc options to match
-	your target hardware.
+	Edit the -march=___ , -msse4.2 and -mcrc32 gcc options to match
+	your target hardware (options in 'gcc --help=target').
 
 	Setting -DBUILTIN_CRC enables the use of CRC32c hardware intrisics.
 	The instruction is added in SSE4.2 (available in i5/i7 or later).
 	Otherwise, software hashing will be used. This has a major
 	effect on compression performance.
 
-
 Build:
+
+	Minimum of gcc 4.4 is required to build.
 
 $ qmake
 $ make
@@ -42,3 +43,12 @@ Options:
   -o [ --order ] arg (=3) compress: model order (range 1-6, default 3)
   -m [ --mem ] arg (=32)  compress: memory use MiB (range 8-2048, default 32)
 
+
+Benchmarking:
+
+	Drop text corpus in ex. calgary/ , largetext/  and pizzachili/ . 
+
+	Edit the data/runtest.pl script to match
+
+$ cd data/
+$ ./runtest.pl calgary/

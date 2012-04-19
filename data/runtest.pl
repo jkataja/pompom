@@ -123,11 +123,31 @@ sub run_compress_tests {
 
 die "pompom not found\n" unless -x '../bin/pompom'; 
 
-my @Calgary = qw/bib book1 book2 geo news obj1 obj2 paper1 paper2 pic progc progl progp trans/;
+my $dir = shift;
+die "usage: $0 directory\n" unless defined $dir && -d $dir; 
 
-my @Largetext = qw/enwik8/;
+my %files;
+opendir(DIR, $dir) or die $!;
+while (my $file = readdir(DIR)) {
+	next if $file =~ /^\./; # starts with .
+	next if $file =~ /\.out$/; # ends with .out
+	next if $file =~ /\.gz$/; # ends with .gz
+	next if $file eq 'md5sums' || $file eq 'README'; # cruft
+	$files{$file}++;
+}
 
-my @cmds = ( 'gzip -1', 'gzip -9', 'bzip2 -1', 'bzip2 -9', '../bin/pompom -o3', '../bin/pompom -o5 -m512' );
+die "no input files found\n" unless scalar keys %files;
 
-&run_compress_tests(\@cmds, 'calgary', \@Calgary);
-#&run_compress_tests(\@cmds, 'largetext', \@Largetext);
+$dir =~ s/\W//g;
+
+my @cmds = ( 
+	'gzip -1', 
+	'gzip -9', 
+	'bzip2 -1', 
+	'bzip2 -9',
+	'../bin/pompom -o3', 
+	'../bin/pompom -o5 -m512' 
+);
+
+my @fails = sort keys %files;
+&run_compress_tests(\@cmds, $dir, \@fails);
