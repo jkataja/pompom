@@ -1,5 +1,7 @@
 /**
- * Context frequency keeping cuckoo hash for PPM compression. 
+ * Cuckoo hash for storing Context -> { Frequency, Followers } mapping.
+ * Hash table length is constant and whenever table becomes full,
+ * any insertions will fail and the contents should be reset.
  *
  * @see http://www.it-c.dk/people/pagh/papers/cuckoo-jour.pdf
  * @author jkataja
