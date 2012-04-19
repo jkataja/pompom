@@ -12,9 +12,13 @@ Configure:
 
 $ $VISUAL common.pri
 
-	Setting -DBUILTIN_CRC enables hardware CRC32 intrisics.
-	Otherwise, software hashes will be used. This will affect
-	compression performance.
+	Edit the -march=___ , msse4.2 and -mcrc32 gcc options to match
+	your target hardware.
+
+	Setting -DBUILTIN_CRC enables the use of CRC32c hardware intrisics.
+	The instruction is added in SSE4.2 (available in i5/i7 or later).
+	Otherwise, software hashing will be used. This has a major
+	effect on compression performance.
 
 
 Build:
