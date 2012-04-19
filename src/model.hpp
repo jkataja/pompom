@@ -89,16 +89,47 @@ void model::dist(const int16 ord, uint32 * dist) {
 	}
 
 	// Existing context in 64b int
-	uint64 keybase = 0;
+	uint64 parent = 0;
 	for (int i = ord - 1 ; i >= 0 ; --i) 
-		keybase |= (0xFFL & context[i]) << (i << 3); // context chars
-	keybase <<= 8; // char in data to be added
-	keybase |= (ord + 1L) << 56; // length
+		parent |= (0xFFULL & context[i]) << (i << 3); // context chars
 
-	// Seek successor states from node (following letters)
+	// First bit always set
+	// Length (+1 for following): 2 bytes
+	// Context char: 6 bytes
+	// Following char: 1 byte
+	uint64 keybase = ((0x81ULL + ord) << 56) | (parent << 8); 
+
+	// Length of context
+	parent |= ((0x80ULL + ord) << 56); 
+
+	// Following letters in parent context
+	const uint64 * vec = contextfreq->get_follower_vec(parent);
+
+#if 0
+	// No symbols in context, assign 1/1 to escape
+	if (vec[0] == 0 && vec[1] == 0 && vec[2] == 0 && vec[3] == 0) {
+		memset(dist, 0, sizeof(int) * (R(EOS) + 1));
+		dist[ R(EOS) ] = dist[ R(Escape) ] = 1;
+		visit.push_back(keybase);
+		return;
+	}
+#endif
+
+	// Add counts for successor chars from context
+	int p = 0;
+	uint64 cmask = (1ULL << 63);
+	uint64 cfollow = vec[p++];
+	
 	for (int c = 0 ; c <= Alpha ; ++c) {
+#ifdef DEBUG
+		assert (contextfreq->has_follower(parent,c) 
+				== ((cmask & cfollow) != 0) > 0));
+		assert (contextfreq->has_follower(parent,c) 
+				== (contextfreq->count(keybase | c) > 0));
+#endif
+
 		// Only add if symbol had 0 frequency in higher order
-		if (dist[ R(c) ] == last) {
+		if (dist[ R(c) ] == last && (cmask & cfollow) > 0) {
 			// Frequency of following context
 			int freq = contextfreq->count(keybase | c);
 			// Update cumulative frequency
@@ -106,11 +137,19 @@ void model::dist(const int16 ord, uint32 * dist) {
 			// Count of symbols in context
 			syms += (freq > 0);
 		}
-		
+	
 		last = dist[ R(c) ];
 		dist[ R(c) ] = run;
+
+		// Following char bit mask
+		cmask >>= 1;
+		if (cmask == 0) {
+			cmask = (1ULL << 63);
+			cfollow = vec[p++];
+		}
 	}
-	// Symbols in context, zero frequency for EOS
+	// Escape frequency is symbols in context
+	// Zero frequency for EOS
 	dist[ R(EOS) ] = dist[ R(Escape) ] = run + (syms > 0 ? syms : 1); 
 
 	visit.push_back(keybase);
@@ -159,8 +198,8 @@ void model::update(const uint16 c) {
 	// Update frequency of c from visited nodes
 	// Don't update lower order contexts ("update exclusion")
 	for (auto it = visit.begin() ; it != visit.end() ; it++ ) {
-		uint64 t = (*it) | c;
-		contextfreq->seen(t);
+		uint64 key = (*it) | c;
+		contextfreq->seen(key);
 	}
 	visit.clear();
 
