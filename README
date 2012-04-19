@@ -17,8 +17,8 @@ $ $VISUAL common.pri
 
 	Setting -DBUILTIN_CRC enables the use of CRC32c hardware intrisics.
 	The instruction is added in SSE4.2 (available in i5/i7 or later).
-	Otherwise, software hashing will be used. This has a major
-	effect on compression performance.
+	Otherwise, software hashing will be used. Using CRC32 instruction
+	has a major impact on performance.
 
 
 Build:
@@ -41,6 +41,7 @@ Options:
   -c [ --stdout ]         compress to stdout (default)
   -d [ --decompress ]     decompress to stdout
   -h [ --help ]           show this help
+  -n [ --count ] arg (=0) compress: stop after n bytes
   -o [ --order ] arg (=3) compress: model order (range 1-6, default 3)
   -m [ --mem ] arg (=32)  compress: memory use MiB (range 8-2048, default 32)
 

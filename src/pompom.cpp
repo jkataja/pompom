@@ -96,7 +96,8 @@ long decompress(istream& in, ostream& out, ostream& err) {
 }
 
 long compress(istream& in, ostream& out,
-		ostream& err, const uint8 order, const uint16 limit) {
+		ostream& err, const uint8 order, const uint16 limit, 
+		const uint32 maxlen) {
 
 	unique_ptr<model> m( model::instance(order, limit) );
 	uint32 dist[ R(EOS) + 1 ];
@@ -140,6 +141,10 @@ long compress(istream& in, ostream& out,
 		m->update(c);
 		crc.process_byte(c);
 		++len;
+
+		// Process only prefix bytes
+		if (len == maxlen)
+			break;
 	}
 	// Escape to -1 level, output EOS
 	for (int ord = m->Order ; ord >= 0 ; --ord) {

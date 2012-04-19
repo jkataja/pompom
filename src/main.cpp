@@ -55,6 +55,10 @@ int main(int argc, char** argv) {
 			( "stdout,c", "compress to stdout (default)" )
 			( "decompress,d", "decompress to stdout" )
 			( "help,h", "show this help" )
+			( "count,n", 
+				po::value<int>()->default_value((int)CountDefault),
+				"compress: stop after n bytes"	
+			)
 			( "order,o", 
 				po::value<int>()->default_value((int)OrderDefault),
 				order_str.c_str()
@@ -82,7 +86,7 @@ int main(int argc, char** argv) {
 			len = decompress(cin, cout, cerr);
 		else
 			len = compress(cin, cout, cerr, vm["order"].as<int>(), 
-				vm["mem"].as<int>());
+				vm["mem"].as<int>(), vm["count"].as<int>());
 
 	}
 	catch (exception& e) {

@@ -38,6 +38,9 @@ static const uint16 LimitMin = 8;
 static const uint16 LimitDefault = 32;
 static const uint16 LimitMax = 2048;
 
+// Default for max n bytes
+static const uint16 CountDefault = 0;
+
 // Number of bits in a code value 
 static const uint8 CodeValueBits = 16;
 
@@ -46,6 +49,6 @@ static const uint64 TopValue = (((uint64) 1 << CodeValueBits) - 1);
 
 long decompress(std::istream&, std::ostream&, std::ostream&);
 
-long compress(std::istream&, std::ostream&, std::ostream&, const uint8, const uint16);
+long compress(std::istream&, std::ostream&, std::ostream&, const uint8, const uint16, const uint32);
 
 } // namespace
