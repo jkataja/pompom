@@ -47,12 +47,15 @@ Options:
 
 Benchmarking:
 
-	Drop text corpus in ex. calgary/ , largetext/  and pizzachili/ . 
-	Testing script takes a directory containing the test data
-	as an argument, calls different compression programs
-	with different sets of arguments and outputs a comma-separated
-	table of the results, with compression+uncompression time and
-	compressed file size.
+	Place a text corpus in directory ex. calgary/ , largetext/ 
+	or pizzachili/ . 
 
-$ cd data/
-$ ./runtest.pl calgary/
+	Benchmarking script runtest.pl takes a path containing
+	a test corpus as an argument, and 1) compresses data using
+	gzip, bzip2, 7zip and pompom, 2) uncompresses the data, 
+	3) checks that md5sum of original and uncompressed files
+	match and 4) outputs a LaTeX table of the results, with
+	total compression and uncompression time and compressed
+	file bpc ratio.
+
+$ data/runtest.pl data/calgary/
