@@ -20,6 +20,7 @@ $ $VISUAL common.pri
 	Otherwise, software hashing will be used. This has a major
 	effect on compression performance.
 
+
 Build:
 
 	Minimum of gcc 4.4 is required to build.
@@ -47,8 +48,11 @@ Options:
 Benchmarking:
 
 	Drop text corpus in ex. calgary/ , largetext/  and pizzachili/ . 
-
-	Edit the data/runtest.pl script to match
+	Testing script takes a directory containing the test data
+	as an argument, calls different compression programs
+	with different sets of arguments and outputs a comma-separated
+	table of the results, with compression+uncompression time and
+	compressed file size.
 
 $ cd data/
 $ ./runtest.pl calgary/
