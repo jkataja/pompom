@@ -43,11 +43,11 @@ int main(int argc, char** argv) {
 
 	try {
 		string order_str( str( format(
-			"compression: model order (range %1%-%2%, default %3%)") 
+			"compress: model order (range %1%-%2%, default %3%)") 
 				% (int)OrderMin % (int)OrderMax % (int)OrderDefault));
 
 		string mem_str( str( format(
-			"compression: memory use in MiB (range %1%-%2%, default %3%)") 
+			"compress: memory use MiB (range %1%-%2%, default %3%)") 
 				% LimitMin % LimitMax % LimitDefault));
 
 		po::options_description args("Options");
