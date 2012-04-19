@@ -1,14 +1,29 @@
 QMAKE_CXXFLAGS += -std=c++0x \
-	-march=native \
+	-m64 \
+	# nehalem and later
+	-march=corei7 \
+	-msse4.2 \
+	# crc32 intrisic
+	-mcrc32 -DBUILTIN_CRC \
+	# optimizations
+	-ffast-math \
+	-fgcse-after-reload \
 	-finline-functions \
+	-fpredictive-commoning \
+	-ftree-vectorize \
 	-funroll-loops \
 	-funswitch-loops \
-	-ftree-vectorize \
-	-fpredictive-commoning \
-	-fgcse-after-reload \
+	-fprefetch-loop-arrays \
+	# less warnings of unsigned
 	-Wno-ignored-qualifiers \
-	-DINLINE_CANDIDATE="inline" \
-	-DUNSAFE
+	# more verbose output
+	-DVERBOSE \
+	# less checks
+	-DUNSAFE \
+	# debugging
+	#-DDEBUG
+
+#CONFIG += debug
 
 # ports
 macx {
