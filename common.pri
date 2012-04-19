@@ -21,7 +21,9 @@ QMAKE_CXXFLAGS += -std=c++0x \
 	# less checks
 	-DUNSAFE \
 	# debugging
-	#-DDEBUG
+	#-DDEBUG \
+	# bootstrap based on recent text when space is full
+	-DBOOTSTRAP
 
 #CONFIG += debug
 

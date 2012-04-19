@@ -57,6 +57,12 @@ private:
 
 	// Length+Context (0-7 characters; uint64) -> Frequency (uint16)
 	cuckoo * contextfreq;
+
+	// Buffer length used to bootstrap model when hash is reset
+	static const uint32 History = 2048;
+
+	// Bootstrap context frequencies using recent text
+	void bootstrap();
 };
 
 void model::dist(const int16 ord, uint32 * dist) {
@@ -204,14 +210,61 @@ void model::update(const uint16 c) {
 	// Instead of rehashing, clear context data when preset size is full
 	if (contextfreq->full()) {
 		contextfreq->reset();
-		// TODO update last 2k or so
+
+#ifdef BOOTSTRAP
+		// Bootstrap based on most recent text
+		if (context.size() == History)
+			bootstrap();
+#endif
 	}
 
 	// Update text context
-	if (context.size() == Order)
+	if (context.size() == History)
 		context.pop_back();
 	context.push_front(c);
 
+}
+
+void model::bootstrap() {
+#ifdef VERBOSE
+	std::cerr << "bootstrap" << std::endl;
+#endif
+
+#ifndef UNSAFE
+	assert (context.size() == History);
+#endif
+
+	// Key length markers (first byte)
+	uint64 len[Order];
+	for (int ord = 0 ; ord <= Order ; ++ord) {
+			len[ord] = ((0x81ULL + ord) << 56);
+	}
+
+	// Key mask for characters (max 7 bytes)
+	uint64 mask[Order];
+	uint64 lastmask = 0;
+	for (int ord = 0 ; ord <= Order ; ++ord) {
+		lastmask = mask[ord] = (lastmask << 8 | 0xFF);
+	}
+
+	// Fill first (circular buffer)
+	uint64 text = 0;
+	for (int i = History - 8  ; i < History ; --i) {
+		uint8 c = context[i];
+		text = (text << 8 | c);
+	}
+
+	// History buffer
+	for (int i = History - 1 ; i >= 0 ; --i) {
+		uint8 c = context[i];
+		text = ((text << 8) | c);
+
+		// Mark context lengths 0..Order as visited
+		for (int ord = 0 ; ord <= Order ; ++ord) {
+			uint64 key = (len[ord] | (mask[ord] & text));
+			contextfreq->seen(key);
+		}
+	}
 }
 
 void model::rescale() {
