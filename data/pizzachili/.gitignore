@@ -4,3 +4,6 @@ english.50MB
 pitches.50MB
 proteins.50MB
 sources.50MB
+*.out
+*.out.flip
+

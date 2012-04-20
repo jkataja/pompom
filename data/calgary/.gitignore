@@ -12,3 +12,6 @@ progc
 progl
 progp
 trans
+*.out
+*.out.flip
+
