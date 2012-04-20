@@ -90,13 +90,12 @@ private:
 	uint32 follower_vecs_at;
 	uint32 follower_vecs_len;
 
-	// Keep previous follower index for faster access 
-	// (no need for hash function calls)
-	uint64 follower_lastkey;
-	uint32 follower_lastidx;
+	// Previous follower index is used often, keep it for faster access 
+	mutable uint64 follower_lastkey;
+	mutable uint32 follower_lastidx;
 
 	// Index of follower bit vector of context
-	inline const uint32 follower_idx(const uint64);
+	inline const uint32 follower_idx(const uint64) const;
 
 	// Length of allocated keys and values 
 	size_t len;
@@ -213,7 +212,7 @@ const uint16 cuckoo::count(const uint64 key) const {
 	return 0;
 }
 
-const uint32 cuckoo::follower_idx(const uint64 key) {
+const uint32 cuckoo::follower_idx(const uint64 key) const {
 	if (key == follower_lastkey)
 		return follower_lastidx;
 
