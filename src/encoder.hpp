@@ -23,7 +23,7 @@ namespace pompom {
 
 class encoder {
 public:
-    // Encode a symbol.
+	// Encode a symbol.
 	inline void encode(const uint16, const uint32[]);
 
 	// Length of output bitss
@@ -47,14 +47,14 @@ private:
 	uint8 bits;
 	uint64 outlen;
 
-    // High end of the current code region
-    uint64 high;
+	// High end of the current code region
+	uint64 high;
 
-    // Low end of the current code region
-    uint64 low;
+	// Low end of the current code region
+	uint64 low;
 
-    // Number of bits to follow next
-    uint64 bits_to_follow;
+	// Number of bits to follow next
+	uint64 bits_to_follow;
 
 	inline void bit_plus_follow(const bool);
 	inline void bit_write(const bool);

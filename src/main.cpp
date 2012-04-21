@@ -62,10 +62,10 @@ int main(int argc, char** argv) {
 			;
 
 
-        po::variables_map vm;
-        po::store(po::command_line_parser(argc, argv).
-                  options(args).run(), vm);
-        po::notify(vm);
+		po::variables_map vm;
+		po::store(po::command_line_parser(argc, argv).
+				options(args).run(), vm);
+		po::notify(vm);
 
 		// help
 		if (vm.count("help") 
