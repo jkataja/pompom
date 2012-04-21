@@ -125,13 +125,6 @@ void model::dist(const int16 ord, uint32 * dist) {
 	uint64 cfollow = vec[p++];
 	
 	for (int c = 0 ; c <= Alpha ; ++c) {
-#ifdef DEBUG
-		assert (contextfreq->has_follower(parent,c) 
-				== ((cmask & cfollow) != 0) > 0));
-		assert (contextfreq->has_follower(parent,c) 
-				== (contextfreq->count(keybase | c) > 0));
-#endif
-
 		// Only add if symbol had 0 frequency in higher order
 		if (dist[ R(c) ] == last && (cmask & cfollow) > 0) {
 			// Frequency of following context
@@ -194,7 +187,7 @@ void model::update(const uint16 c) {
 	bool outscale = false;
 	for (auto it = visit.begin() ; it != visit.end() ; it++ ) {
 		uint64 t = (*it) | c;
-		outscale = (outscale || contextfreq->count(t) >= TopValue - 1);
+		outscale = (outscale || contextfreq->count(t) >= MaxFrequency - 1);
 	}
 	if (outscale)
 		rescale();
@@ -244,7 +237,7 @@ void model::bootstrap() {
 	uint64 mask[Order];
 	uint64 lastmask = 0;
 	for (int ord = 0 ; ord <= Order ; ++ord) {
-		lastmask = mask[ord] = (lastmask << 8 | 0xFF);
+		lastmask = mask[ord] = ((lastmask << 8) | 0xFF);
 	}
 
 	// Fill first (circular buffer)

@@ -7,6 +7,8 @@
  * Based on Mark Nelson (1991)
  * Arithmetic Coding + Statistical Modeling = Data Compression
  * Dr. Dobb's Journal February, 1991 
+ *
+ * Modified to use 64 bit variables.
  * 
  * @see ftp://ftp.cpsc.ucalgary.ca/pub/projects/ar.cod/
  * @see http://www.dogma.net/markn/articles/arith/part1.htm
@@ -26,10 +28,10 @@ public:
 	// Encode a symbol.
 	inline void encode(const uint16, const uint32[]);
 
-	// Length of output bitss
+	// Length of output byte
 	const uint64 len() const;
 
-	// Write pending bits
+	// Write bit buffer and closing fluff
 	void finish();
 
 	encoder(std::ostream&);
@@ -44,7 +46,7 @@ private:
 	char * buf;
 	uint32 p;
 	uint8 bitp;
-	uint8 bits;
+	uint8 byte;
 	uint64 outlen;
 
 	// High end of the current code region
@@ -53,8 +55,8 @@ private:
 	// Low end of the current code region
 	uint64 low;
 
-	// Number of bits to follow next
-	uint64 bits_to_follow;
+	// Number of byte to follow next
+	uint64 byte_to_follow;
 
 	inline void bit_plus_follow(const bool);
 	inline void bit_write(const bool);
@@ -63,8 +65,8 @@ private:
 };
 
 encoder::encoder(std::ostream& proxy)
-	: out(proxy), p(0), bitp(0), bits(0), outlen(0),
-	  high(TopValue), low(0), bits_to_follow(0) 
+	: out(proxy), p(0), bitp(0), byte(0), outlen(0),
+	  high(TopValue), low(0), byte_to_follow(0) 
 {
 	buf = new char[WriteBufSize];
 	memset(buf, 0, sizeof(char) * WriteBufSize);
@@ -84,71 +86,80 @@ void encoder::encode(const uint16 c, const uint32 * dist) {
 	// Size of the current code region
 	uint64 range = (uint64) (high - low) + 1;
 	// Narrow the code region  to that allocated to this symbol
-	high = low + (range * dist[ R(c) ]) / dist[ R(EOS) ] - 1;
-	low = low + (range * dist[ L(c) ]) / dist[ R(EOS) ];
+	uint32 totalrange = dist[ R(EOS) ];
+	high = low + ((range * dist[ R(c)] ) / totalrange) - 1;
+	low = low + ((range * dist[ L(c)] ) / totalrange);
 
 #ifdef DEBUG
 	std::cerr << "encode\t" << range 
 		<< "\t< " << dist[ L(c) ] << " , " << dist[ R(c) ] << " > " 
-		<< "\t < " << low << " , " << high << " > " 
-		<< "\t " << c << " '" << (char)c << "'" << std::endl;
+		<< "\t < " << low << " , " << high << " > ";
+	if (c == 256)
+		std::cerr << "\t " << c << " ESC" << std::endl;
+	else if (c >= 0x20 && c <= '~')
+		std::cerr << "\t " << c << " '" << (char)c << "'" << std::endl;
+	else
+		std::cerr << "\t " << c << std::endl;
 #endif
 
 	// Loop to output bits
 	while (true) {
-		// Output 0 if in low half
-		if (high < Half) {
-			bit_plus_follow(false);
-		}
-		// Output 1 if in high half
-		else if (low >= Half) {
-			bit_plus_follow(true);
-			// Subtract offset to top
-			low -= Half;
-			high -= Half;
+		// Output matching high bit 
+		if ((high & (1 << (CodeValueBits - 1))) 
+				== (low & (1 << (CodeValueBits - 1)))) {
+			bit_plus_follow(high >> (CodeValueBits - 1));
 		}
 		// Output an opposite bit
-		else if (low >= FirstQuarter && high < ThirdQuarter) {
+		else if ((low & FirstQuarter) && !(high & FirstQuarter)) {
 			// later if in middle half
-			++bits_to_follow;
-			// Subtract offset to middle
-			low -= FirstQuarter;
-			high -= FirstQuarter;
+			++byte_to_follow;
+			// subtract offset to middle
+			low &= (FirstQuarter - 1);
+			high |= FirstQuarter;
 		}
 		// Otherwise exit loop
 		else
 			break;
+
 		// Scale up code range
-		low = (low << 1);
-		high = ((high << 1) + 1);
+		low = ((low << 1) & TopValue);
+		high = (((high << 1) | 1) & TopValue);
+
+#ifdef DEBUG
+		std::cerr << "\t\t\t\t\t" 
+			<< " < " << low << " , " << high << " > "
+			<< std::endl;
+#endif
+	
 	}
 }
 
 void encoder::finish() {
-	// Output two bits that select the quarter that the current
+	// Output two byte that select the quarter that the current
 	// code range contains
-	++bits_to_follow;
-	if (low < FirstQuarter)
-		bit_plus_follow(false);
-	else
-		bit_plus_follow(true);
-	// Pad output byte to to 8 bits
-	while (++bitp != 8)
-		bits <<= 1;
+	++byte_to_follow;
+	bit_plus_follow(low >= FirstQuarter);
+	// Pad output byte to to 8 byte
+	if (bitp != 0)
+		byte <<= (8 - bitp); 
 	flush_bits();
 	flush();
-
-	// FIXME should it close output?
+	// Pad the output to CodeValueBits length
+	// FIXME Amount of fluff after end of code
+	for (int i = 0 ; i < (CodeValueBits >> 3) ; ++i) {
+		out << (char)0;
+		++outlen;
+	}
 }
 
-// Output bits plus following opposite bits.
+// Output byte plus following opposite bits.
 void encoder::bit_plus_follow(const bool bit) {
 	// Output bit
 	bit_write(bit);
-	// Output bits_to_follow opposite bits. Set bits_to_follow to zero
-	while (bits_to_follow > 0) {
+	// Output byte_to_follow opposite bits. Sets byte_to_follow to zero.
+	while (byte_to_follow > 0) {
 		bit_write(!bit);
-		bits_to_follow -= 1;
+		--byte_to_follow;
 	}
 }
 
@@ -156,8 +167,8 @@ void encoder::flush_bits() {
 #ifndef UNSAFE
 	assert (bitp == 8);
 #endif
-	buf[p++] = bits;
-	bits = bitp = 0;
+	buf[p++] = byte;
+	byte = bitp = 0;
 }
 
 const uint64 encoder::len() const {
@@ -173,7 +184,7 @@ void encoder::flush() {
 }
 
 void encoder::bit_write(const bool bit) {
-	bits = ((bits << 1) + (bit ? 1 : 0));
+	byte = ((byte << 1) | (bit ? 1 : 0));
 	if (++bitp == 8)
 		flush_bits();
 	if (p == WriteBufSize)

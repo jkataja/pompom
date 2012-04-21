@@ -20,10 +20,10 @@ static const char SELF[] = "pompom";
 static const uint16 Alpha = 255;
 
 // Code for escape symbol
-static const uint16 Escape = 256;
+static const uint16 Escape = (Alpha + 1);
 
 // Code for end of stream symbol
-static const uint16 EOS = 257;
+static const uint16 EOS = (Alpha + 2);
 
 // Compressed file magic header
 static const char Magia[] = "pim";
@@ -42,10 +42,22 @@ static const uint16 LimitMax = 2048;
 static const uint16 CountDefault = 0;
 
 // Number of bits in a code value 
-static const uint8 CodeValueBits = 16;
+static const uint8 CodeValueBits = 32;
 
-// Largest code value
+// Largest code value in range
 static const uint64 TopValue = (((uint64) 1 << CodeValueBits) - 1);
+
+// Maximum frequency for encoding
+static const uint64 MaxFrequency = (((uint64) 1 << 16) - 1);
+
+// Point after first quarter in range
+static const uint64 FirstQuarter = (TopValue/4+1);
+
+// Point after first half in range
+static const uint64 Half = (2*FirstQuarter);
+
+// Point after third quarter in range
+static const uint64 ThirdQuarter = (3*FirstQuarter);
 
 long decompress(std::istream&, std::ostream&, std::ostream&);
 

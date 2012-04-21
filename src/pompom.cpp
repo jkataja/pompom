@@ -26,6 +26,11 @@ long decompress(std::istream& in, std::ostream& out, std::ostream& err) {
 	// Model memory limit: 2 bytes
 	uint16 limit = ((in.get() << 8) | in.get());
 
+#ifdef DEBUG
+	std::cerr << "decompress order:" << (int)order << " limit:" << limit 
+		<< std::endl;
+#endif
+
 	decoder dec(in);
 	std::unique_ptr<model> m( model::instance(order, limit) );
 	uint32 dist[ R(EOS) + 1 ];
@@ -64,14 +69,19 @@ long decompress(std::istream& in, std::ostream& out, std::ostream& err) {
 		return -1;
 	}
 
-	// CRC check: 4 bytes
+	// CRC check: 4 bytes at EOF
+	// FIXME Instead of until EOF; fixed amount of fluff after end of code
 	uint32 v = 0;
-	char b = 0;
-	for (int i = 0 ; (i<4 && (in.get(b) >= 0)) ; ++i) {
+	int b;
+	while ((b = in.get()) != -1)
 		v = ((v << 8) | (b & 0xFF));
-	}
 	if (v != crc.checksum()) {
-		err << SELF << ": checksum does not match" << std::endl;
+		err << SELF << ": checksum does not match"
+#ifdef VERBOSE
+			<< ": " << std::hex 
+			<< "out:" << crc.checksum() << " file:" << v << std::dec 
+#endif
+			<< std::endl;
 		return -1;
 	}
 
@@ -150,8 +160,9 @@ long compress(std::istream& in, std::ostream& out,
 	out << (char)(v >> 24) << (char)((v >> 16) & 0xFF) 
 		<< (char)((v >> 8) & 0xFF) << (char)(v & 0xFF);
 
-	uint64 outlen = enc.len();
-	double bpc = ((outlen / (double)len) * 8.0); // XXX
+	// Length: magic + order + limit + code + crc
+	uint64 outlen = sizeof(Magia) + 1 + 2 + enc.len() + 4 ; 
+	double bpc = ((outlen / (double)len) * 8.0);
 	
 	err << SELF << ": in " << len << " -> out " << outlen << " at " 
 		<< std::fixed << std::setprecision(3) << bpc << " bpc" 

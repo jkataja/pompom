@@ -109,14 +109,8 @@ private:
 	// Output verbose output to stderr when filled
 	const void filled_verbose() const;
 
-	// Output context key to string (for debugging)
-	const std::string key_str(uint64) const;
-
 	// Key of parent context
 	inline const uint64 parent_key(const uint64) const;
-
-	// Output following set characters in context
-	const void print_set(const uint64 key);
 
 	// Bit vector offset for character
 	inline const uint32 off(const uint32, const uint8) const;
@@ -302,7 +296,7 @@ const bool cuckoo::seen(const uint64 key) {
 			return false;
 
 	// 0th order context
-	if (key == RootKey) 
+	if (key == RootKey)
 		return true;
 
 	uint32 a = h1(key);
@@ -359,16 +353,6 @@ void cuckoo::rescale() {
 		if (values[i] == 0)
 			values[i] = 0;
 	}
-}
-
-const std::string cuckoo::key_str(uint64 key) const {
-	std::string s("'");
-	int ord = (key >> 56) & 0x7F;
-	for (int i = ord ; i >= 0 ; --i) {
-		char c = ((key >> (i << 3)) & 0xFF); // characters in context
-		s += (c >= ' ' && c <= '~' ? c : '_');
-	}
-	return s.append("'");
 }
 
 const uint32 cuckoo::filled() const {
@@ -437,17 +421,6 @@ const uint64 cuckoo::mask(const uint8 c) const {
 const uint64 cuckoo::parent_key(const uint64 key) const {
 	return (((0xFF00000000000000ULL & key) - (1ULL << 56)) 
 		| ((0x00FFFFFFFFFFFFFFULL & key) >> 8));
-}
-
-const void cuckoo::print_set(const uint64 key) {
-	uint32 p = follower_idx(key);
-	if (p == 0)
-		return;
-	for (int c = 0 ; c <= Alpha ; ++c) {
-		if (mask(c) & follower_vecs[off(p,c)])
-			std::cerr << c << " ";
-	}
-	std::cerr << std::endl;
 }
 
 } // namespace
