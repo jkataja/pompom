@@ -16,25 +16,22 @@ my $Suffix = 'out';
 my $SuffixFlip = 'out.flip';
  
 my %tests;
-	
+
+# Path component removed from file/cmd
 sub pretty_file {
 	my ($file) = @_;
 	$file = (split /\//,$file)[-1];
 	return $file;
 }
 
-sub pretty_bin {
-	my ($bin) = @_;
-	$bin =~ s/^.*\///g; # path
-	return $bin;
-}
-
+# Group size digits
 sub pretty_size {
 	my ($size) = @_;
-	$size =~ s/(\d{1,3}?)(?=(\d{3})+$)/$1 /g; # group digits
+	$size =~ s/(\d{1,3}?)(?=(\d{3})+$)/$1 /g; 
 	return $size;
 }
 
+# More readable time display
 sub pretty_time {
 	my ($time) = @_;
 	if ($time < 1) { return "< 1s"; }
@@ -44,23 +41,26 @@ sub pretty_time {
 	return int($time/60)."m";
 }
 
+# Commands (program+arguments) which are listed in cmd hash
 sub list_cmds {
 	my ($cmd) = @_;
 	my @cmd_arg;
 	foreach my $bin (@$cmd) {
 		my $p = $bin->{p};
 		foreach my $arg (@{ $bin->{args} }) {
-			push @cmd_arg, &pretty_bin($p).' '.$arg;
+			push @cmd_arg, &pretty_file($p).' '.$arg;
 		}
 	}
 	return @cmd_arg;
 }
 
+# Call compressor and decompressor programs with input, take time
+# and check output checksum
 sub run_test {
 	my ($cmd, $path, $data, $tests) = @_;
 	my $file = $path.'/'.$data;
 	my $outfile = $path.'/'.$data.$Suffix;
-	die "file '$file' not readable\n" unless -r $file;
+	die "File '$file' not readable\n" unless -r $file;
 
 	# 7z doesn't like //
 	$file =~ s/\/\//\//g;
@@ -69,7 +69,7 @@ sub run_test {
 	my $c = $cmd->{c};
 	my $d = $cmd->{d};
 	foreach my $arg (@{ $cmd->{args} }) {
-		print STDERR "\trunning '$bin' '$arg'\n";
+		print STDERR "\tRunning '$bin' options '$arg'\n";
 
 		# options
 		my $full_c = "$bin $c $arg";
@@ -93,13 +93,13 @@ sub run_test {
 		# compress
 		my $startc = [ Time::HiRes::gettimeofday( ) ];
 		system("$full_c");
-		die "compress '$full_c' returned error\n" if ($? != 0 );
+		die "Command '$full_c' returned error\n" if ($? != 0 );
 		my $timec = Time::HiRes::tv_interval( $startc );
 	
 		# decompress
 		my $startd = [ Time::HiRes::gettimeofday( ) ];
 		system("$full_d 2>/dev/null");
-		die "uncompress '$full_d' returned error\n" if ($? != 0 );
+		die "Command '$full_d' returned error\n" if ($? != 0 );
 		my $timed = Time::HiRes::tv_interval( $startd );
 		
 		# move file from temp path
@@ -117,7 +117,7 @@ sub run_test {
 
 		unlink("$file.$Suffix", "$file.$SuffixFlip");
 
-		$tests->{$file}->{ &pretty_bin($bin).' '.$arg } = {
+		$tests->{$file}->{ &pretty_file($bin).' '.$arg } = {
 			'size' => $size, 
 			'timec' => $timec,
 			'timed' => $timed 
@@ -125,6 +125,7 @@ sub run_test {
 	}
 }
 
+# Run all set cases and output LaTeX tabular
 sub run_compress_tests {
 	my ($cmd, $corpuspath, $collection) = @_;
 	my $origsizesum;
@@ -214,8 +215,9 @@ END
 }
 
 my $dir = shift;
-die "usage: $0 directory\n" unless defined $dir && -d $dir; 
+die "Usage: $0 in/path/\n" unless defined $dir && -d $dir; 
 
+# Which benchmark files to use (input directory)
 my %files;
 opendir(DIR, $dir) or die $!;
 while (my $file = readdir(DIR)) {
@@ -225,25 +227,25 @@ while (my $file = readdir(DIR)) {
 	$files{$file}++;
 }
 
-die "no input files found\n" unless scalar keys %files;
+die "No input files found in path\n" unless scalar keys %files;
 
-# benchmark compressors to run
+# Which benchmark commands (programs+arguments) to run
 my @cmds = ( 
 	{ p => 'gzip', c => '', d => '-d', args => [ '-9' ] },
 	{ p => 'bzip2', c => '', d => '-d', args => [ '-9' ] },
-	{ p => '7z', c => 'a', d => 'e',
-		args => [ '-m0=lzma -mx=9', '-m0=ppmd -mx=9' ] , f => 1 },
+	{ p => '7z', c => 'a', d => 'e', f => 1,
+		args => [ '-m0=lzma -mx=9', '-m0=ppmd -mx=9' ] },
 	{ p => 'pompom', c => '', d => '-d',
 		args => [ '-o3 -m8', '-o5 -m64', '-o6 -m256' ] },
 );
 
-# full path for command
+# Find out full path to command
 foreach my $cmd (@cmds) {
 	my $p = $cmd->{p};
 	my $binpath = `which '$p'`; chomp $binpath;
 	$binpath = $FindBin::Bin."/../bin/$p" if $binpath eq '' ;
 	$cmd->{p} = $binpath;
-	die "compressor '$p' not found\n" unless -x $binpath;
+	die "Program '$p' not found\n" unless -x $binpath;
 }
 
 my @fails = sort keys %files;
