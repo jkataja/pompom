@@ -34,7 +34,7 @@ sub pretty_size {
 # More readable time display
 sub pretty_time {
 	my ($time) = @_;
-	if ($time < 1) { return "< 1s"; }
+	if ($time < 0.1) { return "< 0.1s"; }
 	if ($time < 10) { return sprintf("%.1f", $time)."s"; }
 	if ($time < 60) { return int($time)."s"; }
 	if ($time < 600) { return sprintf("%.1f", $time/60)."s"; }
