@@ -25,7 +25,7 @@ namespace pompom {
 class model {
 public:
 	// Returns new instance after checking model args
-	static model * instance(const uint8, const uint16);
+	static model * instance(const int, const int, const bool, const int);
 	
 	// Give running totals of the symbols in context
 	inline void dist(const int16, uint32 *);
@@ -44,7 +44,7 @@ public:
 
 	~model();
 private:
-	model(const uint8, const uint16);
+	model(const uint8, const uint16, const bool, const uint8);
 	model();
 	model(const model& old);
 	const model& operator=(const model& old);
@@ -58,8 +58,11 @@ private:
 	// Length+Context (0-7 characters; uint64) -> Frequency (uint16)
 	cuckoo * contextfreq;
 
-	// Buffer length used to bootstrap model when hash is reset
-	static const uint32 History = 2048;
+	// Call bootstrap on reset
+	const bool do_bootstrap;
+
+	// Buffer length, used in text context and model bootstrap 
+	const uint32 history;
 
 	// Bootstrap context frequencies using recent text
 	void bootstrap();
@@ -152,7 +155,14 @@ void model::dist(const int16 ord, uint32 * dist) {
 	visit.push_back(keybase);
 }
 
-model * model::instance(const uint8 order, const uint16 limit) {
+model * model::instance(const int order, const int limit, 
+		const bool reset, const int bootsiz) 
+{
+	if (bootsiz < BootMin || bootsiz > BootMax) {
+		std::string err = str( format("accepted range for bootstrap buffer is %1%-%2%") 
+				% (int)BootMin % (int)BootMax );
+		throw std::range_error(err);
+	}
 	if (order < OrderMin || order > OrderMax) {
 		std::string err = str( format("accepted range for order is %1%-%2%") 
 				% (int)OrderMin % (int)OrderMax );
@@ -163,11 +173,13 @@ model * model::instance(const uint8 order, const uint16 limit) {
 				% LimitMin % LimitMax );
 		throw std::range_error(err);
 	}
-	return new model(order, limit);
+	return new model(order, limit, reset, bootsiz);
 }
 
-model::model(const uint8 order, const uint16 limit) 
-	: Order(order), Limit(limit), contextfreq(0)
+model::model(const uint8 order, const uint16 limit, const bool reset,
+		const uint8 bootsiz) 
+	: Order(order), Limit(limit), contextfreq(0), do_bootstrap(!reset),
+	  history(do_bootstrap ? order : (bootsiz << 10))
 {
 	visit.reserve(Order);
 	contextfreq = new cuckoo(limit);
@@ -204,15 +216,13 @@ void model::update(const uint16 c) {
 	if (contextfreq->full()) {
 		contextfreq->reset();
 
-#ifdef BOOTSTRAP
 		// Bootstrap based on most recent text
-		if (context.size() == History)
-			bootstrap();
-#endif
+		if (do_bootstrap && context.size() == history)
+				bootstrap();
 	}
 
 	// Update text context
-	if (context.size() == History)
+	if (context.size() == history)
 		context.pop_back();
 	context.push_front(c);
 
@@ -224,7 +234,7 @@ void model::bootstrap() {
 #endif
 
 #ifndef UNSAFE
-	assert (context.size() == History);
+	assert (context.size() == history);
 #endif
 
 	// Key length markers (first byte)
@@ -242,13 +252,13 @@ void model::bootstrap() {
 
 	// Fill first (circular buffer)
 	uint64 text = 0;
-	for (int i = History - 8  ; i < History ; --i) {
+	for (int i = history - 8  ; i < history ; --i) {
 		uint8 c = context[i];
 		text = (text << 8 | c);
 	}
 
 	// History buffer
-	for (int i = History - 1 ; i >= 0 ; --i) {
+	for (int i = history - 1 ; i >= 0 ; --i) {
 		uint8 c = context[i];
 		text = ((text << 8) | c);
 

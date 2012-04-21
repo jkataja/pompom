@@ -34,29 +34,38 @@ int main(int argc, char** argv) {
 	std::cout.rdbuf()->pubsetbuf(outbuf, BUFSIZE);
 
 	try {
+		std::string bootstrap_str( boost::str( boost::format(
+			"compress: bootstrap buffer size in KiB [%1%,%2%]") 
+				% (int)BootMin % (int)BootMax));
+
 		std::string order_str( boost::str( boost::format(
-			"compress: model order (range %1%-%2%, default %3%)") 
-				% (int)OrderMin % (int)OrderMax % (int)OrderDefault));
+			"compress: model order [%1%,%2%]") 
+				% (int)OrderMin % (int)OrderMax));
 
 		std::string mem_str( boost::str( boost::format(
-			"compress: memory use MiB (range %1%-%2%, default %3%)") 
-				% LimitMin % LimitMax % LimitDefault));
+			"compress: memory use in MiB [%1%,%2%]") 
+				% (int)LimitMin % (int)LimitMax));
 
 		po::options_description args("Options");
 		args.add_options()
 			( "stdout,c", "compress to stdout (default)" )
 			( "decompress,d", "decompress to stdout" )
 			( "help,h", "show this help" )
+			( "reset,r", "compress: reset model on memory limit" )
+			( "bootsize,b", 
+				po::value<int>()->default_value(BootDefault),
+				bootstrap_str.c_str()
+			)
 			( "count,n", 
-				po::value<int>()->default_value((int)CountDefault),
+				po::value<long>()->default_value(CountDefault),
 				"compress: stop after n bytes"	
 			)
 			( "order,o", 
-				po::value<int>()->default_value((int)OrderDefault),
+				po::value<int>()->default_value(OrderDefault),
 				order_str.c_str()
 			)
 			( "mem,m", 
-				po::value<int>()->default_value((int)LimitDefault),
+				po::value<int>()->default_value(LimitDefault),
 				mem_str.c_str()
 			)
 			;
@@ -77,8 +86,13 @@ int main(int argc, char** argv) {
 		if (vm.count("decompress"))
 			len = decompress(std::cin, std::cout, std::cerr);
 		else
-			len = compress(std::cin, std::cout, std::cerr, vm["order"].as<int>(), 
-				vm["mem"].as<int>(), vm["count"].as<int>());
+			len = compress(std::cin, std::cout, std::cerr, 
+				vm["order"].as<int>(), 
+				vm["mem"].as<int>(), 
+				vm["count"].as<long>(), 
+				(vm.count("reset") > 0),
+				vm["bootsize"].as<int>()
+			);
 
 	}
 	catch (std::exception& e) {
@@ -86,7 +100,8 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 	catch (...) {
-		std::cerr << SELF << ": caught unknown std::exception" << std::endl << std::flush;
+		std::cerr << SELF << ": caught unknown std::exception" 
+			<< std::endl << std::flush;
 		return 1;
 	}
 

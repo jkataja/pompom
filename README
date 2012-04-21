@@ -38,12 +38,14 @@ Compress or decompress input using fixed-order PPM compression.
 Reads from standard input and writes to standard output.
 
 Options:
-  -c [ --stdout ]         compress to stdout (default)
-  -d [ --decompress ]     decompress to stdout
-  -h [ --help ]           show this help
-  -n [ --count ] arg (=0) compress: stop after n bytes
-  -o [ --order ] arg (=3) compress: model order (range 1-6, default 3)
-  -m [ --mem ] arg (=32)  compress: memory use MiB (range 8-2048, default 32)
+  -c [ --stdout ]            compress to stdout (default)
+  -d [ --decompress ]        decompress to stdout
+  -h [ --help ]              show this help
+  -r [ --reset ]             compress: reset model on memory limit
+  -b [ --bootsize ] arg (=4) compress: bootstrap buffer size in KiB [1,255]
+  -n [ --count ] arg (=0)    compress: stop after n bytes
+  -o [ --order ] arg (=3)    compress: model order [1,6]
+  -m [ --mem ] arg (=32)     compress: memory use in MiB [8,2048]
 
 
 Benchmarking:

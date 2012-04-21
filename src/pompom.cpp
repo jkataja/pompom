@@ -26,13 +26,17 @@ long decompress(std::istream& in, std::ostream& out, std::ostream& err) {
 	// Model memory limit: 2 bytes
 	uint16 limit = ((in.get() << 8) | in.get());
 
+	// Model bootstrap buffer length: 1 byte
+	uint8 bootsize = in.get();
+
 #ifdef DEBUG
 	std::cerr << "decompress order:" << (int)order << " limit:" << limit 
 		<< std::endl;
 #endif
 
 	decoder dec(in);
-	std::unique_ptr<model> m( model::instance(order, limit) );
+	std::unique_ptr<model> m( model::instance(order, limit, 
+			(bootsize == 0), bootsize ) );
 	uint32 dist[ R(EOS) + 1 ];
 
 	// Read data: terminated by EOS symbol
@@ -89,16 +93,18 @@ long decompress(std::istream& in, std::ostream& out, std::ostream& err) {
 }
 
 long compress(std::istream& in, std::ostream& out,
-		std::ostream& err, const uint8 order, const uint16 limit, 
-		const uint32 maxlen) {
+		std::ostream& err, const int order, const int limit, 
+		const long maxlen, const bool reset, const int bootsize) {
 
-	std::unique_ptr<model> m( model::instance(order, limit) );
+	std::unique_ptr<model> m( model::instance(order, limit, reset, 
+			bootsize ) );
 	uint32 dist[ R(EOS) + 1 ];
 
-	// Out magic, order and memory limit
+	// Out magic, order, memory limit and bootstrap buffer size
 	out << Magia << (char)0x00;
 	out << (char)(order & 0xFF);
 	out << (char)(limit >> 8) << (char)(limit & 0xFF);
+	out << (char)(bootsize & 0xFF);
 
 	// Use boost CRC even when hardware intrisics would be available.
 	// Just to be sure encoder/decoder use same CRC algorithm.
@@ -133,10 +139,9 @@ long compress(std::istream& in, std::ostream& out,
 		// Update model
 		m->update(c);
 		crc.process_byte(c);
-		++len;
 
 		// Process only prefix bytes
-		if (len == maxlen)
+		if (++len == maxlen)
 			break;
 	}
 	// Escape to -1 level, output EOS
@@ -160,8 +165,8 @@ long compress(std::istream& in, std::ostream& out,
 	out << (char)(v >> 24) << (char)((v >> 16) & 0xFF) 
 		<< (char)((v >> 8) & 0xFF) << (char)(v & 0xFF);
 
-	// Length: magic + order + limit + code + crc
-	uint64 outlen = sizeof(Magia) + 1 + 2 + enc.len() + 4 ; 
+	// Length: magic + order + limit + bootsize + code + crc
+	uint64 outlen = sizeof(Magia) + 1 + 2 + 1 + enc.len() + 4 ; 
 	double bpc = ((outlen / (double)len) * 8.0);
 	
 	err << SELF << ": in " << len << " -> out " << outlen << " at " 

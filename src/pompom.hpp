@@ -17,32 +17,37 @@ namespace pompom {
 static const char SELF[] = "pompom";
 
 // Number of symbols in alphabet without escape and EOS
-static const uint16 Alpha = 255;
+static const int Alpha = 255;
 
 // Code for escape symbol
-static const uint16 Escape = (Alpha + 1);
+static const int Escape = (Alpha + 1);
 
 // Code for end of stream symbol
-static const uint16 EOS = (Alpha + 2);
+static const int EOS = (Alpha + 2);
 
 // Compressed file magic header
 static const char Magia[] = "pim";
 
-// Model order
-static const uint8 OrderMin = 1;
-static const uint8 OrderDefault = 3;
-static const uint8 OrderMax = 6;
+// Bootstrap buffer length limits
+static const int BootMin = 1;
+static const int BootDefault = 4;
+static const int BootMax = 255;
+
+// Model order limits
+static const int OrderMin = 1;
+static const int OrderDefault = 3;
+static const int OrderMax = 6;
 
 // Model memory limits 
-static const uint16 LimitMin = 8;
-static const uint16 LimitDefault = 32;
-static const uint16 LimitMax = 2048;
+static const int LimitMin = 8;
+static const int LimitDefault = 32;
+static const int LimitMax = 2048;
 
 // Default for max n bytes
-static const uint16 CountDefault = 0;
+static const int CountDefault = 0;
 
 // Number of bits in a code value 
-static const uint8 CodeValueBits = 32;
+static const int CodeValueBits = 32;
 
 // Largest code value in range
 static const uint64 TopValue = (((uint64) 1 << CodeValueBits) - 1);
@@ -61,6 +66,7 @@ static const uint64 ThirdQuarter = (3*FirstQuarter);
 
 long decompress(std::istream&, std::ostream&, std::ostream&);
 
-long compress(std::istream&, std::ostream&, std::ostream&, const uint8, const uint16, const uint32);
+long compress(std::istream&, std::ostream&, std::ostream&, 
+	const int, const int, const long, const bool, const int);
 
 } // namespace
