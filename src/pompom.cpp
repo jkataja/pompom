@@ -1,9 +1,5 @@
-#include <sstream>
 #include <iomanip>
-#include <memory>
-#include <cassert>
 #include <cstring>
-#include <stdexcept>
 #include <boost/format.hpp>
 #include <boost/crc.hpp>
 
@@ -12,28 +8,15 @@
 #include "decoder.hpp"
 #include "encoder.hpp"
 
-using std::string;
-using std::istream;
-using std::ostream;
-using std::endl;
-using std::flush;
-using std::unique_ptr;
-using std::fixed;
-using std::setprecision;
-using std::range_error;
-using boost::crc_32_type;
-using boost::str;
-using boost::format;
-
 namespace pompom {
 
-long decompress(istream& in, ostream& out, ostream& err) {
+long decompress(std::istream& in, std::ostream& out, std::ostream& err) {
 
-	// Magic header: 0-terminated string
+	// Magic header: 0-terminated std::string
 	char filemagic[ sizeof(Magia) ];
 	in.getline(filemagic, sizeof(Magia), (char)0);
 	if (strncmp(filemagic, Magia, sizeof(Magia)) != 0) {
-		err << SELF << ": no magic" << endl << flush;
+		err << SELF << ": no magic" << std::endl << std::flush;
 		return -1;
 	}
 
@@ -44,11 +27,11 @@ long decompress(istream& in, ostream& out, ostream& err) {
 	uint16 limit = ((in.get() << 8) | in.get());
 
 	decoder dec(in);
-	unique_ptr<model> m( model::instance(order, limit) );
+	std::unique_ptr<model> m( model::instance(order, limit) );
 	uint32 dist[ R(EOS) + 1 ];
 
 	// Read data: terminated by EOS symbol
-	crc_32_type crc;
+	boost::crc_32_type crc;
 	uint64 len = 0;
 	uint16 c = 0;
 	while (!dec.eof()) {
@@ -61,7 +44,7 @@ long decompress(istream& in, ostream& out, ostream& err) {
 		} 
 #ifndef UNSAFE
 		if (c == Escape) {
-			throw range_error("seek character range leaked escape");
+			throw std::range_error("seek character range leaked escape");
 		}
 #endif
 		if (c == EOS) {
@@ -77,7 +60,7 @@ long decompress(istream& in, ostream& out, ostream& err) {
 		++len;
 	}
 	if (dec.eof()) {
-		err << SELF << ": unexpected end of compressed data" << endl;
+		err << SELF << ": unexpected end of compressed data" << std::endl;
 		return -1;
 	}
 
@@ -88,18 +71,18 @@ long decompress(istream& in, ostream& out, ostream& err) {
 		v = ((v << 8) | (b & 0xFF));
 	}
 	if (v != crc.checksum()) {
-		err << SELF << ": checksum does not match" << endl;
+		err << SELF << ": checksum does not match" << std::endl;
 		return -1;
 	}
 
 	return len;
 }
 
-long compress(istream& in, ostream& out,
-		ostream& err, const uint8 order, const uint16 limit, 
+long compress(std::istream& in, std::ostream& out,
+		std::ostream& err, const uint8 order, const uint16 limit, 
 		const uint32 maxlen) {
 
-	unique_ptr<model> m( model::instance(order, limit) );
+	std::unique_ptr<model> m( model::instance(order, limit) );
 	uint32 dist[ R(EOS) + 1 ];
 
 	// Out magic, order and memory limit
@@ -109,7 +92,7 @@ long compress(istream& in, ostream& out,
 
 	// Use boost CRC even when hardware intrisics would be available.
 	// Just to be sure encoder/decoder use same CRC algorithm.
-	crc_32_type crc;
+	boost::crc_32_type crc;
 	
 	// Write data: terminated by EOS symbol
 	encoder enc(out);
@@ -130,8 +113,8 @@ long compress(istream& in, ostream& out,
 		// Output
 #ifndef UNSAFE
 		if (dist[ L(c) ] == dist[ R(c) ]) {
-			throw range_error(
-				str ( format("zero frequency for symbol %1%") % (int)c ) 
+			throw std::range_error(
+				boost::str ( boost::format("zero frequency for symbol %1%") % (int)c ) 
 			);
 		}
 #endif
@@ -154,7 +137,7 @@ long compress(istream& in, ostream& out,
 	m->dist(-1, dist);
 #ifndef UNSAFE
 	if (dist[ L(EOS) ] == dist[ R(EOS) ]) {
-		throw range_error("zero frequency for EOS");
+		throw std::range_error("zero frequency for EOS");
 	}
 #endif
 	enc.encode(EOS, dist);
@@ -171,8 +154,8 @@ long compress(istream& in, ostream& out,
 	double bpc = ((outlen / (double)len) * 8.0); // XXX
 	
 	err << SELF << ": in " << len << " -> out " << outlen << " at " 
-		<< fixed << setprecision(3) << bpc << " bpc" 
-		<< endl << flush;
+		<< std::fixed << std::setprecision(3) << bpc << " bpc" 
+		<< std::endl << std::flush;
 	
 	return len;
 }

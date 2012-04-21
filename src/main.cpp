@@ -8,19 +8,11 @@
 #include <stdexcept>
 #include <boost/program_options.hpp>
 #include <boost/format.hpp>
+
 #include "pompom.hpp"
 
 namespace po = boost::program_options;
 
-using std::string;
-using std::cin;
-using std::cout;
-using std::cerr;
-using std::endl;
-using std::exception;
-using std::flush;
-using boost::str;
-using boost::format;
 using namespace pompom;
 
 #define BUFSIZE 32768
@@ -38,15 +30,15 @@ int main(int argc, char** argv) {
 	setlocale(LC_ALL,"C");
 	char inbuf[BUFSIZE];
 	char outbuf[BUFSIZE];
-	cin.rdbuf()->pubsetbuf(inbuf, BUFSIZE);
-	cout.rdbuf()->pubsetbuf(outbuf, BUFSIZE);
+	std::cin.rdbuf()->pubsetbuf(inbuf, BUFSIZE);
+	std::cout.rdbuf()->pubsetbuf(outbuf, BUFSIZE);
 
 	try {
-		string order_str( str( format(
+		std::string order_str( boost::str( boost::format(
 			"compress: model order (range %1%-%2%, default %3%)") 
 				% (int)OrderMin % (int)OrderMax % (int)OrderDefault));
 
-		string mem_str( str( format(
+		std::string mem_str( boost::str( boost::format(
 			"compress: memory use MiB (range %1%-%2%, default %3%)") 
 				% LimitMin % LimitMax % LimitDefault));
 
@@ -78,28 +70,28 @@ int main(int argc, char** argv) {
 		// help
 		if (vm.count("help") 
 				|| (vm.count("stdout") && vm.count("decompress")) ) {
-			cerr << USAGE << args << endl << flush;
+			std::cerr << USAGE << args << std::endl << std::flush;
 			return 1;
 		}
 
 		if (vm.count("decompress"))
-			len = decompress(cin, cout, cerr);
+			len = decompress(std::cin, std::cout, std::cerr);
 		else
-			len = compress(cin, cout, cerr, vm["order"].as<int>(), 
+			len = compress(std::cin, std::cout, std::cerr, vm["order"].as<int>(), 
 				vm["mem"].as<int>(), vm["count"].as<int>());
 
 	}
-	catch (exception& e) {
-		cerr << SELF << ": " << e.what() << endl << flush;
+	catch (std::exception& e) {
+		std::cerr << SELF << ": " << e.what() << std::endl << std::flush;
 		return 1;
 	}
 	catch (...) {
-		cerr << SELF << ": caught unknown exception" << endl << flush;
+		std::cerr << SELF << ": caught unknown std::exception" << std::endl << std::flush;
 		return 1;
 	}
 
-	cout << flush;
-	cerr << flush;
+	std::cout << std::flush;
+	std::cerr << std::flush;
 
 	return (len >= 0 ? 0 : 1);
 
