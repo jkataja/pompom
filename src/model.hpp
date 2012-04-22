@@ -59,7 +59,7 @@ private:
 	cuckoo * contextfreq;
 
 	// Call bootstrap on reset
-	const bool do_bootstrap;
+	bool do_bootstrap;
 
 	// Buffer length, used in text context and model bootstrap 
 	const uint32 history;
@@ -179,7 +179,7 @@ model * model::instance(const int order, const int limit,
 model::model(const uint8 order, const uint16 limit, const bool reset,
 		const uint8 bootsiz) 
 	: Order(order), Limit(limit), contextfreq(0), do_bootstrap(!reset),
-	  history(do_bootstrap ? order : (bootsiz << 10))
+	  history(do_bootstrap ? (bootsiz << 10) : order)
 {
 	visit.reserve(Order);
 	contextfreq = new cuckoo(limit);
@@ -207,7 +207,7 @@ void model::update(const uint16 c) {
 	// Update frequency of c from visited nodes
 	// Don't update lower order contexts ("update exclusion")
 	for (auto it = visit.begin() ; it != visit.end() ; it++ ) {
-		uint64 key = (*it) | c;
+		uint64 key = ((*it) | c);
 		contextfreq->seen(key);
 	}
 	visit.clear();
@@ -218,7 +218,7 @@ void model::update(const uint16 c) {
 
 		// Bootstrap based on most recent text
 		if (do_bootstrap && context.size() == history)
-				bootstrap();
+			bootstrap();
 	}
 
 	// Update text context
@@ -237,37 +237,45 @@ void model::bootstrap() {
 	assert (context.size() == history);
 #endif
 
-	// Key length markers (first byte)
-	uint64 len[Order];
-	for (int ord = 0 ; ord <= Order ; ++ord) {
-			len[ord] = ((0x81ULL + ord) << 56);
+	// Circular buffer
+	uint64 tailtext = 0;
+	for (int i = Order ; i >= 0 ; --i) {
+		uint8 c = context[i];
+		tailtext = ((tailtext << 8) | c);
 	}
-
+	
 	// Key mask for characters (max 7 bytes)
-	uint64 mask[Order];
-	uint64 lastmask = 0;
+	uint64 mask = 0xFF;
 	for (int ord = 0 ; ord <= Order ; ++ord) {
-		lastmask = mask[ord] = ((lastmask << 8) | 0xFF);
-	}
 
-	// Fill first (circular buffer)
-	uint64 text = 0;
-	for (int i = history - 8  ; i < history ; --i) {
-		uint8 c = context[i];
-		text = (text << 8 | c);
-	}
+		uint64 text = tailtext;
+		
+		// Key length marker
+		uint64 len = ((0x81ULL + ord) << 56);
 
-	// History buffer
-	for (int i = history - 1 ; i >= 0 ; --i) {
-		uint8 c = context[i];
-		text = ((text << 8) | c);
-
-		// Mark context lengths 0..Order as visited
-		for (int ord = 0 ; ord <= Order ; ++ord) {
-			uint64 key = (len[ord] | (mask[ord] & text));
-			contextfreq->seen(key);
+		// History buffer
+		for (int i = history - 1 ; i >= 0 ; --i) {
+			uint8 c = context[i];
+			text = ((text << 8) | c);
+	
+			// Mark context as visited
+			// Insertion fails if history if too large to fit in memory
+			// Disable bootstrap
+			// TODO ex. cut history size in half, until minimal cap
+			uint64 key = (len | (mask & text));
+			if (!contextfreq->seen(key)) {
+				contextfreq->reset();
+				do_bootstrap = false;
+#ifdef VERBOSE
+				std::cerr << "history is too large to fit in memory, bootstrap disabled" << std::endl;
+#endif
+				return;
+			}
 		}
+
+		mask = ((mask << 8) | 0xFF);
 	}
+
 }
 
 void model::rescale() {

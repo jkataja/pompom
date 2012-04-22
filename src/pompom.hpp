@@ -30,7 +30,7 @@ static const char Magia[] = "pim";
 
 // Bootstrap buffer length limits
 static const int BootMin = 1;
-static const int BootDefault = 4;
+static const int BootDefault = 32;
 static const int BootMax = 255;
 
 // Model order limits
