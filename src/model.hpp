@@ -28,7 +28,7 @@ public:
 	static model * instance(const int, const int, const bool, const int);
 	
 	// Give running totals of the symbols in context
-	inline void dist(const int16, uint32 *);
+	inline void dist(const int16, uint32 *, uint64 *);
 
 	// Rescale when largest frequency has met limit
 	void rescale();
@@ -37,10 +37,10 @@ public:
 	inline void update(const uint16);
 
 	// Prediction order
-	const uint8 Order;
+	const uint8 order;
 
 	// Memory limit in MiB
-	const uint16 Limit;
+	const uint16 limit;
 
 	~model();
 private:
@@ -68,27 +68,32 @@ private:
 	void bootstrap();
 };
 
-void model::dist(const int16 ord, uint32 * dist) {
+void model::dist(const int16 ord, uint32 * dist, uint64 * x_mask) {
 	// Count of symbols which have frequency, used as escape frequency
 	uint32 syms = 0; 
 	// Cumulative frequency of symbols
 	uint32 run = 0; 
-	// Store previous value since R(c) == L(c+1)
-	uint32 last = 0; 
+
+	int p = 0;
+	uint64 c_mask = (1ULL << 63);
 
 	// -1th order
-	// Give 1 frequency to symbols which have no frequency in 0th order
+	// Give 1 frequency to symbols which have no frequency in higher order
 	if (ord == -1) { 
 		for (int c = 0 ; c <= EOS ; ++c) {
-			run += (dist[ R(c) ] == last);
-			last = dist[ R(c) ];
+			run += ((c_mask & x_mask[p]) > 0);
 			dist[ R(c) ] = run;
+			c_mask >>= 1;
+			if (c_mask == 0) {
+				c_mask = (1ULL << 63);
+				++p;
+			}
 		}
 		return;
 	}
 
 	// Zero cumulative sums, no f for any symbol
-	if (ord == Order)
+	if (ord == order)
 		memset(dist, 0, sizeof(int) * (R(EOS) + 1));
 
 	// Just escapes before we have any context
@@ -112,10 +117,11 @@ void model::dist(const int16 ord, uint32 * dist) {
 	parent |= ((0x80ULL + ord) << 56); 
 
 	// Following letters in parent context
-	const uint64 * vec = contextfreq->get_follower_vec(parent);
+	const uint64 * follow_vec = contextfreq->get_follower_vec(parent);
 
 	// No symbols in context, assign 1/1 to escape
-	if (vec[0] == 0 && vec[1] == 0 && vec[2] == 0 && vec[3] == 0) {
+	if (follow_vec[0] == 0 && follow_vec[1] == 0 
+			&& follow_vec[2] == 0 && follow_vec[3] == 0) {
 		memset(dist, 0, sizeof(int) * (R(EOS) + 1));
 		dist[ R(EOS) ] = dist[ R(Escape) ] = 1;
 		visit.push_back(keybase);
@@ -123,29 +129,27 @@ void model::dist(const int16 ord, uint32 * dist) {
 	}
 
 	// Add counts for successor chars from context
-	int p = 0;
-	uint64 cmask = (1ULL << 63);
-	uint64 cfollow = vec[p++];
-	
 	for (int c = 0 ; c <= Alpha ; ++c) {
 		// Only add if symbol had 0 frequency in higher order
-		if (dist[ R(c) ] == last && (cmask & cfollow) > 0) {
+		if (((x_mask[p] & follow_vec[p]) & c_mask) > 0) {
 			// Frequency of following context
 			int freq = contextfreq->count(keybase | c);
 			// Update cumulative frequency
 			run += freq;
 			// Count of symbols in context
 			syms += (freq > 0);
+			// Mark visited
+			if (freq > 0)
+				x_mask[p] ^= c_mask;
 		}
 	
-		last = dist[ R(c) ];
 		dist[ R(c) ] = run;
 
 		// Following char bit mask
-		cmask >>= 1;
-		if (cmask == 0) {
-			cmask = (1ULL << 63);
-			cfollow = vec[p++];
+		c_mask >>= 1;
+		if (c_mask == 0) {
+			c_mask = (1ULL << 63);
+			++p;
 		}
 	}
 	// Escape frequency is symbols in context
@@ -155,7 +159,7 @@ void model::dist(const int16 ord, uint32 * dist) {
 	visit.push_back(keybase);
 }
 
-model * model::instance(const int order, const int limit, 
+model * model::instance(const int ord, const int lim, 
 		const bool reset, const int bootsiz) 
 {
 	if (bootsiz < BootMin || bootsiz > BootMax) {
@@ -163,26 +167,26 @@ model * model::instance(const int order, const int limit,
 				% (int)BootMin % (int)BootMax );
 		throw std::range_error(err);
 	}
-	if (order < OrderMin || order > OrderMax) {
-		std::string err = str( format("accepted range for order is %1%-%2%") 
+	if (ord < OrderMin || ord > OrderMax) {
+		std::string err = str( format("accepted range for ord is %1%-%2%") 
 				% (int)OrderMin % (int)OrderMax );
 		throw std::range_error(err);
 	}
-	if (limit < LimitMin || limit > LimitMax) {
-		std::string err = str( format("accepted range for memory limit is %1%-%2% (in MiB)") 
+	if (lim < LimitMin || lim > LimitMax) {
+		std::string err = str( format("accepted range for memory lim is %1%-%2% (in MiB)") 
 				% LimitMin % LimitMax );
 		throw std::range_error(err);
 	}
-	return new model(order, limit, reset, bootsiz);
+	return new model(ord, lim, reset, bootsiz);
 }
 
-model::model(const uint8 order, const uint16 limit, const bool reset,
+model::model(const uint8 ord, const uint16 lim, const bool reset,
 		const uint8 bootsiz) 
-	: Order(order), Limit(limit), contextfreq(0), do_bootstrap(!reset),
-	  history(do_bootstrap ? (bootsiz << 10) : order)
+	: order(ord), limit(lim), contextfreq(0), do_bootstrap(!reset),
+	  history(do_bootstrap ? (bootsiz << 10) : ord)
 {
-	visit.reserve(Order);
-	contextfreq = new cuckoo(limit);
+	visit.reserve(order);
+	contextfreq = new cuckoo(lim);
 }
 
 model::~model() {
@@ -239,14 +243,14 @@ void model::bootstrap() {
 
 	// Circular buffer
 	uint64 tailtext = 0;
-	for (int i = Order ; i >= 0 ; --i) {
+	for (int i = order ; i >= 0 ; --i) {
 		uint8 c = context[i];
 		tailtext = ((tailtext << 8) | c);
 	}
 	
 	// Key mask for characters (max 7 bytes)
 	uint64 mask = 0xFF;
-	for (int ord = 0 ; ord <= Order ; ++ord) {
+	for (int ord = 0 ; ord <= order ; ++ord) {
 
 		uint64 text = tailtext;
 		

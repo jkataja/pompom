@@ -37,16 +37,21 @@ long decompress(std::istream& in, std::ostream& out, std::ostream& err) {
 	decoder dec(in);
 	std::unique_ptr<model> m( model::instance(order, limit, 
 			(bootsize == 0), bootsize ) );
+
 	uint32 dist[ R(EOS) + 1 ];
+
+	// Exclusion mask for chars which appeared in a higher order
+	uint64 x_mask[4];
 
 	// Read data: terminated by EOS symbol
 	boost::crc_32_type crc;
 	uint64 len = 0;
 	uint16 c = 0;
 	while (!dec.eof()) {
+		memset(x_mask, 0xFF, sizeof(long) * 4);
 		// Seek character range
-		for (int ord = m->Order ; ord >= -1 ; --ord) {
-			m->dist(ord, dist);
+		for (int ord = m->order ; ord >= -1 ; --ord) {
+			m->dist(ord, dist, x_mask);
 			// Symbol c has frequency in context
 			if ((c = dec.decode(dist)) != Escape)
 				break;
@@ -98,7 +103,6 @@ long compress(std::istream& in, std::ostream& out,
 
 	std::unique_ptr<model> m( model::instance(order, limit, reset, 
 			bootsize ) );
-	uint32 dist[ R(EOS) + 1 ];
 
 	// Out magic, order, memory limit and bootstrap buffer size
 	out << Magia << (char)0x00;
@@ -110,15 +114,21 @@ long compress(std::istream& in, std::ostream& out,
 	// Just to be sure encoder/decoder use same CRC algorithm.
 	boost::crc_32_type crc;
 	
+	uint32 dist[ R(EOS) + 1 ];
+
+	// Exclusion mask for chars which appeared in a higher order
+	uint64 x_mask[4];
+
 	// Write data: terminated by EOS symbol
 	encoder enc(out);
 	uint64 len = 0;
 	char b;
 	while (in.get(b)) {
 		int c = (0xFF & b);
+		memset(x_mask, 0xFF, sizeof(long) * 4);
 		// Seek character range
-		for (int ord = m->Order ; ord >= -1 ; --ord) {
-			m->dist(ord, dist);
+		for (int ord = m->order ; ord >= -1 ; --ord) {
+			m->dist(ord, dist, x_mask);
 			// Symbol c has frequency in context
 			if (dist[ L(c) ] != dist[ R(c) ])
 				break;
@@ -140,16 +150,16 @@ long compress(std::istream& in, std::ostream& out,
 		m->update(c);
 		crc.process_byte(c);
 
-		// Process only prefix bytes
+		// Process only prefix amount of bytes
 		if (++len == maxlen)
 			break;
 	}
 	// Escape to -1 level, output EOS
-	for (int ord = m->Order ; ord >= 0 ; --ord) {
-		m->dist(ord, dist);
+	for (int ord = m->order ; ord >= 0 ; --ord) {
+		m->dist(ord, dist, x_mask);
 		enc.encode(Escape, dist); 
 	} 
-	m->dist(-1, dist);
+	m->dist(-1, dist, x_mask);
 #ifndef UNSAFE
 	if (dist[ L(EOS) ] == dist[ R(EOS) ]) {
 		throw std::range_error("zero frequency for EOS");
