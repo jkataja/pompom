@@ -135,7 +135,7 @@ cuckoo::cuckoo(const size_t mem) {
 		(sizeof(uint64) // keys
 		+ sizeof(uint16)  // values
 		+ sizeof(uint32) // followers bitvector index
-		+ (((Alpha >> 6) * sizeof(uint64)) >> 1)); // bitvector
+		+ ( (((Alpha + 1) >> 6) * sizeof(uint64)) >> 1) ); // bitvector
 
 	// 64bit context key
 	keys = (uint64 *) malloc(len * sizeof(uint64));
@@ -163,7 +163,7 @@ cuckoo::cuckoo(const size_t mem) {
 	// is enough to have half as many slots for follower bit vectors
 	follower_vecs_len = (len >> 1);
 	follower_vecs = (uint64 *) malloc(follower_vecs_len 
-			* (Alpha >> 6) * sizeof(uint64));
+			* ((Alpha + 1) >> 6) * sizeof(uint64));
 	if (!follower_vecs) {
 		free(keys);
 		free(values);
@@ -185,7 +185,7 @@ void cuckoo::reset() {
 	memset(keys, 0, len * sizeof(uint64));
 	memset(values, 0, len * sizeof(uint16));
 	memset(followers, 0, len * sizeof(uint32));
-	memset(follower_vecs, 0, follower_vecs_len * (Alpha >> 6) 
+	memset(follower_vecs, 0, follower_vecs_len * ((Alpha + 1) >> 6) 
 			* sizeof(uint64)); 
 	follower_vecs_at = FollowersBase;
 	follower_lastkey = 0;
@@ -407,7 +407,7 @@ const uint32 cuckoo::h2(const uint64 key) const {
 }
 
 const uint32 cuckoo::off(const uint32 p, const uint8 c) const {
-	const uint32 off = ((Alpha >> 6) * p + (c >> 6));
+	const uint32 off = (((Alpha + 1) >> 6) * p + (c >> 6));
 #ifdef DEBUG
 	assert(off < follower_vecs_len);
 #endif
