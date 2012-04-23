@@ -28,6 +28,11 @@ static const int EOS = (Alpha + 2);
 // Compressed file magic header
 static const char Magia[] = "pim";
 
+// Adaptation threshold 
+static const int AdaptMin = 8;
+static const int AdaptDefault = 22;
+static const int AdaptMax = 32;
+
 // Bootstrap buffer length limits
 static const int BootMin = 1;
 static const int BootDefault = 32;
@@ -55,6 +60,9 @@ static const uint64 TopValue = (((uint64) 1 << CodeValueBits) - 1);
 // Maximum frequency for encoding
 static const uint64 MaxFrequency = (((uint64) 1 << 16) - 1);
 
+// Encoder numerical limits rescale threshold 
+static const uint64 CoderRescale = ((1 << 24) - 1);
+
 // Point after first quarter in range
 static const uint64 FirstQuarter = (TopValue/4+1);
 
@@ -66,7 +74,10 @@ static const uint64 ThirdQuarter = (3*FirstQuarter);
 
 long decompress(std::istream&, std::ostream&, std::ostream&);
 
-long compress(std::istream&, std::ostream&, std::ostream&, 
-	const int, const int, const long, const bool, const int);
+long compress(std::istream& in, std::ostream& out, std::ostream& err, 
+		const int, const int, const long, // order, limit, maxlen
+		const bool, const int, // reset, bootsize
+		const bool, const int); // adapt, adaptsize
+
 
 } // namespace

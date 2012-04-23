@@ -29,14 +29,12 @@ long decompress(std::istream& in, std::ostream& out, std::ostream& err) {
 	// Model bootstrap buffer length: 1 byte
 	uint8 bootsize = in.get();
 
-#ifdef DEBUG
-	std::cerr << "decompress order:" << (int)order << " limit:" << limit 
-		<< std::endl;
-#endif
+	// Model local adaptation length: 1 byte
+	uint8 adaptsize = in.get();
 
 	decoder dec(in);
 	std::unique_ptr<model> m( model::instance(order, limit, 
-			(bootsize == 0), bootsize ) );
+			(bootsize == 0), bootsize, (adaptsize > 0), adaptsize ) );
 
 	uint32 dist[ R(EOS) + 1 ];
 
@@ -97,23 +95,33 @@ long decompress(std::istream& in, std::ostream& out, std::ostream& err) {
 	return len;
 }
 
-long compress(std::istream& in, std::ostream& out,
-		std::ostream& err, const int order, const int limit, 
-		const long maxlen, const bool reset, const int bootsize) {
-
-	std::unique_ptr<model> m( model::instance(order, limit, reset, 
-			bootsize ) );
-
-	// Out magic, order, memory limit and bootstrap buffer size
+long compress(std::istream& in, std::ostream& out, std::ostream& err, 
+		const int order, const int limit, const long maxlen, 
+		const bool reset, const int bootsize,
+		const bool adapt, const int adaptsize ) 
+{
+	// Magic
 	out << Magia << (char)0x00;
+
+	// Model order: 1 byte
 	out << (char)(order & 0xFF);
+
+	// Model memory limit: 2 bytes
 	out << (char)(limit >> 8) << (char)(limit & 0xFF);
-	out << (char)(bootsize & 0xFF);
+
+	// Model bootstrap buffer length: 1 byte
+	out << (char)((reset ? 0 : bootsize) & 0xFF);
+
+	// Model local adaptation length: 1 byte
+	out << (char)((adapt ? adaptsize : 0) & 0xFF);
 
 	// Use boost CRC even when hardware intrisics would be available.
 	// Just to be sure encoder/decoder use same CRC algorithm.
 	boost::crc_32_type crc;
 	
+	std::unique_ptr<model> m( model::instance(order, limit, 
+			reset, bootsize, adapt, adaptsize ) );
+
 	uint32 dist[ R(EOS) + 1 ];
 
 	// Exclusion mask for chars which appeared in a higher order
@@ -155,6 +163,7 @@ long compress(std::istream& in, std::ostream& out,
 			break;
 	}
 	// Escape to -1 level, output EOS
+	memset(x_mask, 0xFF, sizeof(long) * 4);
 	for (int ord = m->order ; ord >= 0 ; --ord) {
 		m->dist(ord, dist, x_mask);
 		enc.encode(Escape, dist); 
@@ -175,8 +184,8 @@ long compress(std::istream& in, std::ostream& out,
 	out << (char)(v >> 24) << (char)((v >> 16) & 0xFF) 
 		<< (char)((v >> 8) & 0xFF) << (char)(v & 0xFF);
 
-	// Length: magic + order + limit + bootsize + code + crc
-	uint64 outlen = sizeof(Magia) + 1 + 2 + 1 + enc.len() + 4 ; 
+	// Length: magic + order + limit + bootsize + adapt + code + crc
+	uint64 outlen = sizeof(Magia) + 1 + 2 + 1 + 1 + enc.len() + 4 ; 
 	double bpc = ((outlen / (double)len) * 8.0);
 	
 	err << SELF << ": in " << len << " -> out " << outlen << " at " 

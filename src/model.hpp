@@ -17,15 +17,12 @@
 #include "pompom.hpp"
 #include "cuckoo.hpp"
 
-using boost::str;
-using boost::format;
-
 namespace pompom {
 
 class model {
 public:
 	// Returns new instance after checking model args
-	static model * instance(const int, const int, const bool, const int);
+	static model * instance(const int, const int, const bool, const int, const bool, const int);
 	
 	// Give running totals of the symbols in context
 	inline void dist(const int16, uint32 *, uint64 *);
@@ -44,10 +41,13 @@ public:
 
 	~model();
 private:
-	model(const uint8, const uint16, const bool, const uint8);
+	model(const uint8, const uint16, const uint8, const uint8);
 	model();
 	model(const model& old);
 	const model& operator=(const model& old);
+
+	// Options range check
+	static void opt_check(const char *, const int, const int, const int);
 
 	// Data context
 	std::deque<int> context;
@@ -59,13 +59,31 @@ private:
 	cuckoo * contextfreq;
 
 	// Call bootstrap on reset
-	bool do_bootstrap;
+	bool lets_bootstrap;
+
+	// Faster local adaptation with escape frequency count
+	bool lets_esc_rescale;
+
+	// Local adaptability threshold value for escaped frequency
+	const uint64 adaptcount;
 
 	// Buffer length, used in text context and model bootstrap 
 	const uint32 history;
 
 	// Bootstrap context frequencies using recent text
 	void bootstrap();
+
+	// Maximum cumulative frequency met
+	bool outscale;
+
+	// Cumulative frequency from last run
+	uint64 last_run;
+
+	// Cumulative frequency from last iteration of dist
+	uint64 lastest_run;
+
+	// Sum of escaped cumulative frequency
+	uint64 sum_esc;
 };
 
 void model::dist(const int16 ord, uint32 * dist, uint64 * x_mask) {
@@ -80,7 +98,7 @@ void model::dist(const int16 ord, uint32 * dist, uint64 * x_mask) {
 	// -1th order
 	// Give 1 frequency to symbols which have no frequency in higher order
 	if (ord == -1) { 
-		for (int c = 0 ; c <= EOS ; ++c) {
+		for (int c = 0 ; c <= Alpha ; ++c) {
 			run += ((c_mask & x_mask[p]) > 0);
 			dist[ R(c) ] = run;
 			c_mask >>= 1;
@@ -89,6 +107,8 @@ void model::dist(const int16 ord, uint32 * dist, uint64 * x_mask) {
 				++p;
 			}
 		}
+		dist[ L(EOS) ] = run;
+		dist[ R(EOS) ] = ++run;
 		return;
 	}
 
@@ -134,13 +154,14 @@ void model::dist(const int16 ord, uint32 * dist, uint64 * x_mask) {
 		if (((x_mask[p] & follow_vec[p]) & c_mask) > 0) {
 			// Frequency of following context
 			int freq = contextfreq->count(keybase | c);
-			// Update cumulative frequency
-			run += freq;
-			// Count of symbols in context
-			syms += (freq > 0);
-			// Mark visited
-			if (freq > 0)
+			if (freq > 0) {
+				// Update cumulative frequency
+				run += ((freq << 1) - 1);
+				// Count of symbols in context
+				++syms;
+				// Mark visited
 				x_mask[p] ^= c_mask;
+			}
 		}
 	
 		dist[ R(c) ] = run;
@@ -156,35 +177,60 @@ void model::dist(const int16 ord, uint32 * dist, uint64 * x_mask) {
 	// Zero frequency for EOS
 	dist[ R(EOS) ] = dist[ R(Escape) ] = run + (syms > 0 ? syms : 1); 
 
+	// Rescale forced by on encoder numerical limit
+	outscale = (outscale || (dist[ R(Escape) ] > CoderRescale));
+
+	last_run += run;
+	lastest_run = run;
+
 	visit.push_back(keybase);
 }
 
-model * model::instance(const int ord, const int lim, 
-		const bool reset, const int bootsiz) 
+void model::opt_check(const char * desc, const int val, 
+		const int min, const int max) 
 {
-	if (bootsiz < BootMin || bootsiz > BootMax) {
-		std::string err = str( format("accepted range for bootstrap buffer is %1%-%2%") 
-				% (int)BootMin % (int)BootMax );
+	if (val < min || val > max) {
+		std::string err = boost::str( 
+				boost::format("accepted range for %1% is [%2%,%3%]") 
+						% desc % min % max );
 		throw std::range_error(err);
 	}
-	if (ord < OrderMin || ord > OrderMax) {
-		std::string err = str( format("accepted range for ord is %1%-%2%") 
-				% (int)OrderMin % (int)OrderMax );
-		throw std::range_error(err);
-	}
-	if (lim < LimitMin || lim > LimitMax) {
-		std::string err = str( format("accepted range for memory lim is %1%-%2% (in MiB)") 
-				% LimitMin % LimitMax );
-		throw std::range_error(err);
-	}
-	return new model(ord, lim, reset, bootsiz);
 }
 
-model::model(const uint8 ord, const uint16 lim, const bool reset,
-		const uint8 bootsiz) 
-	: order(ord), limit(lim), contextfreq(0), do_bootstrap(!reset),
-	  history(do_bootstrap ? (bootsiz << 10) : ord)
+model * model::instance(const int ord, const int lim, 
+		const bool reset, const int bootsize,
+		const bool adapt, const int adaptsize) 
 {
+	opt_check("order", ord, OrderMin, OrderMax);
+	opt_check("limit", lim, LimitMin, LimitMax);
+	if (!reset)
+		opt_check("bootstrap buffer", bootsize, BootMin, BootMax);
+	if (adapt)
+		opt_check("adapt", adaptsize, AdaptMin, AdaptMax);
+	return new model(ord, lim, (reset ? 0 : bootsize), 
+			(adapt ? adaptsize : 0));
+}
+
+model::model(const uint8 ord, const uint16 lim, const uint8 bootsize, 
+		const uint8 adaptsize) 
+	: order(ord), 
+	  limit(lim), 
+	  contextfreq(0), 
+	  lets_bootstrap(!(bootsize > 0)),
+	  lets_esc_rescale(adaptsize > 0), 
+	  adaptcount((1 << adaptsize) - 1), 
+	  history(lets_bootstrap ? (bootsize << 10) : ord), 
+	  outscale(false), 
+	  last_run(0), 
+	  lastest_run(0), 
+	  sum_esc(0)
+{
+#ifdef VERBOSE
+	std::cerr << "model order:" << (int)order << " limit:" << (int)limit 
+		<< " bootstrap:" << lets_bootstrap << " bootsize:" << (int)bootsize
+		<< " adapt:" << lets_esc_rescale << " adaptsize:" << (int)adaptsize 
+		<< std::endl;
+#endif
 	visit.reserve(order);
 	contextfreq = new cuckoo(lim);
 }
@@ -199,14 +245,32 @@ void model::update(const uint16 c) {
 		throw std::range_error("update character out of range");
 	}
 #endif
-	// Check if maximum frequency would be met, rescale if necessary
-	bool outscale = false;
-	for (auto it = visit.begin() ; it != visit.end() ; it++ ) {
-		uint64 t = (*it) | c;
-		outscale = (outscale || contextfreq->count(t) >= MaxFrequency - 1);
+
+	// Rescale when past escaped frequency count threshold
+	if (lets_esc_rescale) {
+		sum_esc += (last_run - lastest_run);
+		if (!outscale && (sum_esc >= adaptcount)) { 
+#ifdef VERBOSE
+			std::cerr << "escape frequency rescale sum_esc:" << sum_esc 
+				<< " adaptcount:" << adaptcount << std::endl;
+#endif
+			sum_esc = 0;
+			outscale = true;
+		}
+		last_run = lastest_run = 0;
 	}
-	if (outscale)
+
+	// Check if maximum frequency would be met
+	for (auto it = visit.begin() ; it != visit.end() ; it++ ) {
+		uint64 key = ((*it) | c);
+		outscale = (outscale || contextfreq->count(key) >= MaxFrequency);
+	}
+	// Rescale before updates
+	if (outscale) {
 		rescale();
+		sum_esc = 0;
+		outscale = false;
+	}
 
 	// Update frequency of c from visited nodes
 	// Don't update lower order contexts ("update exclusion")
@@ -218,10 +282,12 @@ void model::update(const uint16 c) {
 
 	// Instead of rehashing, clear context data when preset size is full
 	if (contextfreq->full()) {
+		sum_esc = 0;
+
 		contextfreq->reset();
 
 		// Bootstrap based on most recent text
-		if (do_bootstrap && context.size() == history)
+		if (lets_bootstrap && context.size() == history)
 			bootstrap();
 	}
 
@@ -269,7 +335,7 @@ void model::bootstrap() {
 			uint64 key = (len | (mask & text));
 			if (!contextfreq->seen(key)) {
 				contextfreq->reset();
-				do_bootstrap = false;
+				lets_bootstrap = false;
 #ifdef VERBOSE
 				std::cerr << "history is too large to fit in memory, bootstrap disabled" << std::endl;
 #endif

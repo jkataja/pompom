@@ -34,6 +34,10 @@ int main(int argc, char** argv) {
 	std::cout.rdbuf()->pubsetbuf(outbuf, BUFSIZE);
 
 	try {
+		std::string adapt_str( boost::str( boost::format(
+			"compress: adaptation threshold in bits [%1%,%2%]") 
+				% (int)AdaptMin % (int)AdaptMax));
+
 		std::string bootstrap_str( boost::str( boost::format(
 			"compress: bootstrap buffer size in KiB [%1%,%2%]") 
 				% (int)BootMin % (int)BootMax));
@@ -51,14 +55,19 @@ int main(int argc, char** argv) {
 			( "stdout,c", "compress to stdout (default)" )
 			( "decompress,d", "decompress to stdout" )
 			( "help,h", "show this help" )
-			( "reset,r", "compress: reset model on memory limit" )
+			( "adapt,a", "compress: fast local adaptation" )
+			( "adaptsize,A", 
+				po::value<int>()->default_value(AdaptDefault),
+				adapt_str.c_str()
+			)
+			( "reset,r", "compress: full reset model on memory limit" )
 			( "bootsize,b", 
 				po::value<int>()->default_value(BootDefault),
 				bootstrap_str.c_str()
 			)
 			( "count,n", 
 				po::value<long>()->default_value(CountDefault),
-				"compress: stop after n bytes"	
+				"compress: stop after count bytes"	
 			)
 			( "order,o", 
 				po::value<int>()->default_value(OrderDefault),
@@ -91,7 +100,9 @@ int main(int argc, char** argv) {
 				vm["mem"].as<int>(), 
 				vm["count"].as<long>(), 
 				(vm.count("reset") > 0),
-				vm["bootsize"].as<int>()
+				vm["bootsize"].as<int>(),
+				(vm.count("adapt") > 0),
+				vm["adaptsize"].as<int>()
 			);
 
 	}
