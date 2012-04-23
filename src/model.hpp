@@ -154,6 +154,7 @@ void model::dist(const int16 ord, uint32 * dist, uint64 * x_mask) {
 		if (((x_mask[p] & follow_vec[p]) & c_mask) > 0) {
 			// Frequency of following context
 			int freq = contextfreq->count(keybase | c);
+			// freq may be zero after shift-right at rescale()
 			if (freq > 0) {
 				// Update cumulative frequency
 				run += ((freq << 1) - 1);

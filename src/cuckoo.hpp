@@ -350,8 +350,10 @@ void cuckoo::rescale() {
 		if (values[i] == 0)
 			continue;
 		values[i] >>= 1;
-		if (values[i] == 0)
-			values[i] = 0;
+		// Allowing value to zero gives slight advantage with enwik8:
+		// 1.863 bpc vs 1.851 bpc
+		//if (values[i] == 0)
+		//	values[i] = 1;
 	}
 }
 
