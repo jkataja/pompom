@@ -21,7 +21,9 @@ QMAKE_CXXFLAGS += -std=c++0x \
 	# less checks
 	-DUNSAFE \
 	# debugging
-	#-DDEBUG
+	#-DDEBUG \
+	# rescaled frequency is at min 1
+	-DRESCALE_MIN_1
 
 #CONFIG += debug
 

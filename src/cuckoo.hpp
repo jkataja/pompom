@@ -347,13 +347,17 @@ void cuckoo::rescale() {
 	std::cerr << "rescale" << std::endl; 
 #endif
 	for (size_t i = 0 ; i < len ; ++i) {
+#ifdef RESCALE_MIN_1
 		if (values[i] == 0)
 			continue;
+#endif
 		values[i] >>= 1;
 		// Allowing value to zero gives slight advantage with enwik8:
 		// 1.863 bpc vs 1.851 bpc
-		//if (values[i] == 0)
-		//	values[i] = 1;
+#ifdef RESCALE_MIN_1
+		if (values[i] == 0)
+			values[i] = 1;
+#endif
 	}
 }
 
