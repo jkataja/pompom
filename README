@@ -1,11 +1,5 @@
 Arithmetic Coding and PPM compression
-
-Authors:
-Pekka J Mikkola (Arithmetic coding)
-Janne J Kataja (PPM compression)
-
-Contact:
-firstname.lastname @ cs.helsinki.fi
+Janne J Kataja <firstname.lastname@iki.fi>
 
 
 Configure:
