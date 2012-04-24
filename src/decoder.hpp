@@ -70,13 +70,11 @@ const uint16 decoder::decode(const uint32 dist[]) {
 		if (dist[ R(c) ] > freq)
 			break;
 
-	// Don't narrow after EOS
-	if (c == EOS)
+	// Don't consume input after EOS
+	if (c == EOS) {
+		eofreached = true;
 		return c;
-
-#ifndef UNSAFE
-	assert (c <= EOS);
-#endif
+	}
 
 	// Narrow the code region to that allotted to this symbol.
 	high = low + (range * dist[ R(c) ]) / dist[ R(EOS) ] - 1;
@@ -96,17 +94,19 @@ const uint16 decoder::decode(const uint32 dist[]) {
 
 	// Consume bits
 	while (true) {
-		// Matching high bit
+		// Matching most significant bit, shift out
 		if ((high & (1 << (CodeValueBits - 1))) 
 				== (low & (1 << (CodeValueBits - 1)))) {
 			// Nothing
 		}
-		// Expand
+		// Underflow 
 		else if ((low & FirstQuarter) && !(high & FirstQuarter)) {
-				value ^= FirstQuarter;
-				// Subtract offset to middle
-				low &= (FirstQuarter - 1);
-				high |= FirstQuarter;
+			// Flip second most significant
+			value ^= FirstQuarter;
+			// Clear 2 upper bits
+			low &= (FirstQuarter - 1);
+			// Set second most significant
+			high |= FirstQuarter;
 		}
 		// Otherwise exit loop.
 		else
