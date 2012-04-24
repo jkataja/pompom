@@ -56,7 +56,7 @@ private:
 	uint64 low;
 
 	// Number of byte to follow next
-	uint64 byte_to_follow;
+	uint64 bits_to_follow;
 
 	inline void bit_plus_follow(const bool);
 	inline void bit_write(const bool);
@@ -66,7 +66,7 @@ private:
 
 encoder::encoder(std::ostream& proxy)
 	: out(proxy), p(0), bitp(0), byte(0), outlen(0),
-	  high(TopValue), low(0), byte_to_follow(0) 
+	  high(TopValue), low(0), bits_to_follow(0) 
 {
 	buf = new char[WriteBufSize];
 	memset(buf, 0, sizeof(char) * WriteBufSize);
@@ -111,9 +111,7 @@ void encoder::encode(const uint16 c, const uint32 * dist) {
 		}
 		// Output an opposite bit
 		else if ((low & FirstQuarter) && !(high & FirstQuarter)) {
-			// later if in middle half
-			++byte_to_follow;
-			// subtract offset to middle
+			++bits_to_follow;
 			low &= (FirstQuarter - 1);
 			high |= FirstQuarter;
 		}
@@ -136,8 +134,7 @@ void encoder::encode(const uint16 c, const uint32 * dist) {
 
 void encoder::finish() {
 	// Output two byte that select the quarter that the current
-	// code range contains
-	++byte_to_follow;
+	++bits_to_follow;
 	bit_plus_follow(low >= FirstQuarter);
 	// Pad output byte to to 8 byte
 	if (bitp != 0)
@@ -156,10 +153,10 @@ void encoder::finish() {
 void encoder::bit_plus_follow(const bool bit) {
 	// Output bit
 	bit_write(bit);
-	// Output byte_to_follow opposite bits. Sets byte_to_follow to zero.
-	while (byte_to_follow > 0) {
+	// Output bits_to_follow opposite bits. Sets bits_to_follow to zero.
+	while (bits_to_follow > 0) {
 		bit_write(!bit);
-		--byte_to_follow;
+		--bits_to_follow;
 	}
 }
 
