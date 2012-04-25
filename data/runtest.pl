@@ -35,9 +35,9 @@ sub pretty_size {
 sub pretty_time {
 	my ($time) = @_;
 	if ($time < 0.1) { return "< 0.1s"; }
-	if ($time < 10) { return sprintf("%.1f", $time)."s"; }
-	if ($time < 60) { return int($time)."s"; }
-	if ($time < 600) { return sprintf("%.1f", $time/60)."s"; }
+	if ($time <= 10) { return sprintf("%.1f", $time)."s"; }
+	if ($time <= 60) { return int($time)."s"; }
+	if ($time <= 600) { return sprintf("%.1f", $time/60)."m"; }
 	return int($time/60)."m";
 }
 
@@ -145,7 +145,7 @@ sub run_compress_tests {
 	my $title_fmt = "l" x scalar &list_cmds($cmd);
 	my $title_cells = join ' & ',&list_cmds($cmd);
 	print <<END;
-\\begin{tabular}[t]{ll|$title_fmt}
+\\begin{tabular}[t]{|ll|$title_fmt|}
     \\hline
            File & Size & $title_cells \\\\
     \\hline
@@ -236,7 +236,9 @@ my @cmds = (
 	{ p => '7z', c => 'a', d => 'e', f => 1,
 		args => [ '-m0=lzma -mx=9', '-m0=ppmd -mx=9' ] },
 	{ p => 'pompom', c => '', d => '-d',
-		args => [ '-o3 -m8', '-o5 -m64', '-o6 -m256' ] },
+		args => ['-o6 -m2048' ] },
+#	{ p => 'pompom', c => '', d => '-d',
+#		args => [ '-o3 -m8', '-o5 -m64', '-o6 -m256' ] },
 );
 
 # Find out full path to command
