@@ -26,7 +26,7 @@ namespace pompom {
 class encoder {
 public:
 	// Encode a symbol.
-	inline void encode(const uint16, const uint32[]);
+	inline void encode(const uint16, const uint32[], const uint64[]);
 
 	// Length of output byte
 	const uint64 len() const;
@@ -76,19 +76,32 @@ encoder::~encoder() {
 	delete [] buf;
 }
 
-void encoder::encode(const uint16 c, const uint32 * dist) {
+void encoder::encode(const uint16 c, const uint32 * dist,
+		const uint64 * dist_check) 
+{
 #ifndef UNSAFE
 	if (c > EOS) {
 		throw std::range_error("c not in code range");
+	}
+	// bit set in dist_check
+	if (c <= Alpha ) {
+		int p = (c >> 6); 
+		int b = (c & 0x3F);
+		uint64 c_mask = (1ULL << (63-b));
+		assert(dist_check[ p ] & c_mask);
 	}
 #endif
 
 	// Size of the current code region
 	uint64 range = (uint64) (high - low) + 1;
 	// Narrow the code region  to that allocated to this symbol
-	uint32 totalrange = dist[ R(EOS) ];
-	high = low + ((range * dist[ R(c)] ) / totalrange) - 1;
-	low = low + ((range * dist[ L(c)] ) / totalrange);
+	uint32 v_range = dist[ R(EOS) ];
+	high = low + ((range * dist[ R(c)] ) / v_range) - 1;
+	low = low + ((range * dist[ L(c)] ) / v_range);
+
+#ifndef UNSAFE
+	assert(low < high);
+#endif
 
 #ifdef DEBUG
 	std::cerr << "encode\t" << range 
@@ -136,10 +149,12 @@ void encoder::finish() {
 	// Output two byte that select the quarter that the current
 	++bits_to_follow;
 	bit_plus_follow(low >= FirstQuarter);
-	// Pad output byte to to 8 byte
-	if (bitp != 0)
+	// Pad output bits to to 8 byte
+	if (bitp != 0) {
 		byte <<= (8 - bitp); 
-	flush_bits();
+		bitp = 8;
+		flush_bits();
+	}
 	flush();
 	// Pad the output to CodeValueBits length
 	// FIXME Amount of fluff after end of code

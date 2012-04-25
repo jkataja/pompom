@@ -25,7 +25,7 @@ public:
 	static model * instance(const int, const int, const bool, const int, const bool, const int);
 	
 	// Give running totals of the symbols in context
-	inline void dist(const int16, uint32 *, uint64 *);
+	inline void dist(const int16, uint32 *, uint64 *, uint64 *);
 
 	// Rescale when largest frequency has met limit
 	void rescale();
@@ -86,35 +86,40 @@ private:
 	uint64 sum_esc;
 };
 
-void model::dist(const int16 ord, uint32 * dist, uint64 * x_mask) {
+void model::dist(const int16 ord, uint32 * dist, uint64 * x_mask,
+		uint64 * dist_check) 
+{
 	// Count of symbols which have frequency, used as escape frequency
 	uint32 syms = 0; 
 	// Cumulative frequency of symbols
 	uint32 run = 0; 
-
-	int p = 0;
-	uint64 c_mask = (1ULL << 63);
+	// 256 bits: symbols set in dist
+	memset(dist_check, 0, sizeof(uint64) * 4);
 
 	// -1th order
 	// Give 1 frequency to symbols which have no frequency in higher order
 	if (ord == -1) { 
 		for (int c = 0 ; c <= Alpha ; ++c) {
-			run += ((c_mask & x_mask[p]) > 0);
-			dist[ R(c) ] = run;
-			c_mask >>= 1;
-			if (c_mask == 0) {
-				c_mask = (1ULL << 63);
-				++p;
-			}
+			int p = (c >> 6);
+			int b = (c & 0x3F);
+			uint64 c_mask = (1ULL << (63-b));
+			int freq = ((c_mask & x_mask[ p ]) > 0);
+			dist[ L(c) ] = run;
+			dist[ R(c) ] = (run += freq);
+			dist_check[ p ] ^= c_mask;
 		}
 		dist[ L(EOS) ] = run;
 		dist[ R(EOS) ] = ++run;
+
 		return;
 	}
 
-	// Zero cumulative sums, no f for any symbol
-	if (ord == order)
+	// Zero cumulative sums and exclusion mask
+	if (ord == order) {
 		memset(dist, 0, sizeof(int) * (R(EOS) + 1));
+		memset(x_mask, 0xFF, sizeof(uint64) * 4);
+	}
+		
 
 	// Just escapes before we have any context
 	if ((int)context.size() < ord) {
@@ -139,44 +144,37 @@ void model::dist(const int16 ord, uint32 * dist, uint64 * x_mask) {
 	// Following letters in parent context
 	const uint64 * follow_vec = contextfreq->get_follower_vec(parent);
 
-	// No symbols in context, assign 1/1 to escape
-	if (follow_vec[0] == 0 && follow_vec[1] == 0 
-			&& follow_vec[2] == 0 && follow_vec[3] == 0) {
-		memset(dist, 0, sizeof(int) * (R(EOS) + 1));
-		dist[ R(EOS) ] = dist[ R(Escape) ] = 1;
-		visit.push_back(keybase);
-		return;
-	}
-
 	// Add counts for successor chars from context
-	for (int c = 0 ; c <= Alpha ; ++c) {
-		// Only add if symbol had 0 frequency in higher order
-		if (((x_mask[p] & follow_vec[p]) & c_mask) > 0) {
+	for (int p = 0 ; p < 4 ; ++p) {
+		int c_off = (p << 6);
+		uint64 it = 0xFFFFFFFFFFFFFFFFULL;
+		uint64 nodes = (x_mask[p] & follow_vec[p]);
+		while ((nodes = ((nodes & it))) != 0) {
+			int b = __builtin_clzll(nodes); // leading zeros
+			int c = (c_off + b);
+			uint64 c_mask = (1ULL << (63-b));
+			it ^= c_mask; // mark visited
 			// Frequency of following context
 			int freq = contextfreq->count(keybase | c);
 			// freq may be zero after shift-right at rescale()
-			if (freq > 0) {
-				// Update cumulative frequency
-				run += ((freq << 1) - 1);
-				// Count of symbols in context
-				++syms;
-				// Mark visited
-				x_mask[p] ^= c_mask;
-			}
+			if (freq == 0)
+				continue;
+			// Update cumulative frequency
+			dist[ L(c) ] = run;
+			dist[ R(c) ] = (run += ((freq << 1) - 1));
+			// Count of symbols in context
+			++syms;
+			// Mark visited in exclusion mask
+			x_mask[p] ^= c_mask;
+			// Mark appearing in dist
+			dist_check[p] |= c_mask;
 		}
 	
-		dist[ R(c) ] = run;
-
-		// Following char bit mask
-		c_mask >>= 1;
-		if (c_mask == 0) {
-			c_mask = (1ULL << 63);
-			++p;
-		}
 	}
 	// Escape frequency is symbols in context
 	// Zero frequency for EOS
-	dist[ R(EOS) ] = dist[ R(Escape) ] = run + (syms > 0 ? syms : 1); 
+	dist[ L(Escape) ] = run;
+	dist[ R(Escape) ] = dist[ R(EOS) ] = run + (syms > 0 ? syms : 1); 
 
 	// Rescale forced by on encoder numerical limit
 	outscale = (outscale || (dist[ R(Escape) ] > CoderRescale));

@@ -19,9 +19,9 @@ QMAKE_CXXFLAGS += -std=c++0x \
 	# more verbose output
 	-DVERBOSE \
 	# less checks
-	-DUNSAFE \
+	#-DUNSAFE \
 	# debugging
-	#-DDEBUG \
+	-DDEBUG \
 	# rescaled frequency is at min 1
 	#-DRESCALE_MIN_1
 

@@ -24,7 +24,7 @@ namespace pompom {
 class decoder {
 public:
 	// Encoder symbol using distribution
-	inline const uint16 decode(const uint32[]);
+	inline const uint16 decode(const uint32[], const uint64[]);
 
 	// End of data reached
 	inline const bool eof();
@@ -53,32 +53,59 @@ private:
 	uint8 byte;
 };
 
-const uint16 decoder::decode(const uint32 dist[]) {
+const uint16 decoder::decode(const uint32 dist[], 
+		const uint64 dist_check[]) 
+{
 	if (eof())
 		return EOS;
 
 	// Symbol to be decoded
-	uint16 c;
+	uint16 c = Escape;
 	// Size of the current code region
 	uint64 range = (uint64) (high - low) + 1;
 	// Frequency for value in range
-	uint32 freq = (uint32) ((((value - low) + 1) 
-		* dist[ R(EOS) ] - 1) / range);
+	uint32 v_range = dist[ R(EOS) ];
+	uint32 freq = (uint32) ((((value - low) + 1) * v_range - 1) / range);
 
 	// Then find symbol
-	for (c = 0; c <= EOS + 1 ; ++c)
-		if (dist[ R(c) ] > freq)
-			break;
-
-	// Don't consume input after EOS
-	if (c == EOS) {
-		eofreached = true;
-		return c;
+	bool c_found = false;
+	/*
+	for (int p = 0 ; (!c_found && p < 4) ; ++p) {
+		int off = (p << 6);
+		uint64 it = 0xFFFFFFFFFFFFFFFFULL;
+		uint64 nodes = (dist_check[p]);
+		while (!c_found && ((nodes = ((nodes & it))) != 0)) {
+			int b = __builtin_clzll(nodes); // leading zeros
+			uint64 c_mask = (1ULL << (63-b));
+			it ^= c_mask; // mark visited
+			c = off + b;
+			std::cerr << "freq:" << freq  << "|" << dist[R(c)]<< " b:" << b << " c:" << c << std::endl;
+			if (dist[ R(c) ] > freq) {
+				c_found = true;
+				break;
+			}
+		}
 	}
+	*/
+	for (c = 0; c <= Alpha ; ++c) {
+		if ((dist_check[ (c >> 6) ] & (1 - (63-(c & 0x3F)))) 
+				&& dist[ R(c) ] > freq) {
+			c_found = true;
+			break;
+		}
+	}
+	// Escape and EOS not in node_check
+	// Don't consume input after EOS
+	if (!c_found && freq >= dist[ R(Escape) ])
+		return EOS;
+
+#ifndef UNSAFE
+	assert((c != Escape) || (dist[L(Escape)] != dist[R(Escape)]));//XXX
+#endif
 
 	// Narrow the code region to that allotted to this symbol.
-	high = low + (range * dist[ R(c) ]) / dist[ R(EOS) ] - 1;
-	low = low + (range * dist[ L(c) ]) / dist[ R(EOS) ];
+	high = low + (range * dist[ R(c) ]) / v_range - 1;
+	low = low + (range * dist[ L(c) ]) / v_range;
 
 #ifdef DEBUG
 	std::cerr << "decode\t" << range 
@@ -89,7 +116,7 @@ const uint16 decoder::decode(const uint32 dist[]) {
 	else if (c >= 0x20 && c <= '~')
 		std::cerr << "\t " << c << " '" << (char)c << "'" << std::endl;
 	else
-		std::cerr << "\t " << c << std::endl;
+		std::cerr << "\t " << c << std::endl << std::flush;
 #endif
 
 	// Consume bits

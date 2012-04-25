@@ -40,18 +40,19 @@ long decompress(std::istream& in, std::ostream& out, std::ostream& err) {
 
 	// Exclusion mask for chars which appeared in a higher order
 	uint64 x_mask[4];
+	
+	uint64 dist_check[4];
 
 	// Read data: terminated by EOS symbol
 	boost::crc_32_type crc;
 	uint64 len = 0;
 	uint16 c = 0;
 	while (!dec.eof()) {
-		memset(x_mask, 0xFF, sizeof(long) * 4);
 		// Seek character range
 		for (int ord = m->order ; ord >= -1 ; --ord) {
-			m->dist(ord, dist, x_mask);
+			m->dist(ord, dist, x_mask, dist_check);
 			// Symbol c has frequency in context
-			if ((c = dec.decode(dist)) != Escape)
+			if ((c = dec.decode(dist, dist_check)) != Escape)
 				break;
 		} 
 #ifndef UNSAFE
@@ -122,10 +123,14 @@ long compress(std::istream& in, std::ostream& out, std::ostream& err,
 	std::unique_ptr<model> m( model::instance(order, limit, 
 			reset, bootsize, adapt, adaptsize ) );
 
+	// Symbol frequencies used in coding
 	uint32 dist[ R(EOS) + 1 ];
 
 	// Exclusion mask for chars which appeared in a higher order
 	uint64 x_mask[4];
+
+	// Bit vector of symbols set in dist
+	uint64 dist_check[4];
 
 	// Write data: terminated by EOS symbol
 	encoder enc(out);
@@ -133,15 +138,19 @@ long compress(std::istream& in, std::ostream& out, std::ostream& err,
 	char b;
 	while (in.get(b)) {
 		int c = (0xFF & b);
-		memset(x_mask, 0xFF, sizeof(long) * 4);
 		// Seek character range
 		for (int ord = m->order ; ord >= -1 ; --ord) {
-			m->dist(ord, dist, x_mask);
+			m->dist(ord, dist, x_mask, dist_check);
 			// Symbol c has frequency in context
-			if (dist[ L(c) ] != dist[ R(c) ])
+			//if (dist[ L(c) ] != dist[ R(c) ])
+			if ( dist_check[ (c >> 6) ] & (1ULL << (63 - (0x3F & c))) ) {
+#ifdef DEBUG
+				assert(dist[ L(c) ] != dist[ R(c) ]);
+#endif
 				break;
+			}
 			// Output escape when symbol c has zero frequency
-			enc.encode(Escape, dist); 
+			enc.encode(Escape, dist, dist_check); 
 		} 
 		
 		// Output
@@ -152,29 +161,29 @@ long compress(std::istream& in, std::ostream& out, std::ostream& err,
 			);
 		}
 #endif
-		enc.encode(c, dist);
+		enc.encode(c, dist, dist_check);
 
 		// Update model
 		m->update(c);
 		crc.process_byte(c);
+		// TODO crc32
 
 		// Process only prefix amount of bytes
 		if (++len == maxlen)
 			break;
 	}
 	// Escape to -1 level, output EOS
-	memset(x_mask, 0xFF, sizeof(long) * 4);
 	for (int ord = m->order ; ord >= 0 ; --ord) {
-		m->dist(ord, dist, x_mask);
-		enc.encode(Escape, dist); 
+		m->dist(ord, dist, x_mask, dist_check);
+		enc.encode(Escape, dist, dist_check); 
 	} 
-	m->dist(-1, dist, x_mask);
+	m->dist(-1, dist, x_mask, dist_check);
 #ifndef UNSAFE
 	if (dist[ L(EOS) ] == dist[ R(EOS) ]) {
 		throw std::range_error("zero frequency for EOS");
 	}
 #endif
-	enc.encode(EOS, dist);
+	enc.encode(EOS, dist, dist_check);
 
 	// Write pending output 
 	enc.finish();
