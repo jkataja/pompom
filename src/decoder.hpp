@@ -72,7 +72,6 @@ const uint16 decoder::decode(const uint32 dist[]) {
 
 	// Don't consume input after EOS
 	if (c == EOS) {
-		eofreached = true;
 		return c;
 	}
 
