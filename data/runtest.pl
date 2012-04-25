@@ -207,7 +207,7 @@ END
 	my $total_times = join ' & ',@times;
 	print <<END;
     \\hline
-           Total & $siz & $total_bpc \\\
+           Total & $siz & $total_bpc \\\\
                 &      & $total_times \\\\
     \\hline
 \\end{tabular}
